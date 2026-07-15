@@ -55,28 +55,28 @@ export default function ForgotPasswordPage(): React.ReactElement {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8">
-        <h1 className="text-xl font-bold text-slate-800 mb-6 text-center">بازیابی رمز عبور</h1>
+    <main className="dashboard-bg min-h-screen flex items-center justify-center p-4">
+      <div className="glass-panel w-full max-w-md rounded-3xl p-8 sm:p-10 shadow-lg animate-fade-up">
+        <h1 className="text-xl font-extrabold text-on-surface mb-6 text-center">بازیابی رمز عبور</h1>
 
         {step === 1 ? (
           <form onSubmit={submitStep1} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">کد ملی</label>
+              <label className="block text-sm font-medium text-on-surface mb-1.5">کد ملی</label>
               <input
                 inputMode="numeric"
                 maxLength={10}
                 value={nationalId}
                 onChange={(e) => setNationalId(e.target.value)}
                 placeholder="کد ملی خود را وارد نمایید"
-                className="w-full rounded-lg border border-slate-300 py-2.5 px-3 text-slate-800 focus:border-purple-500 outline-none"
+                className="input-glass w-full py-3 px-3 text-on-surface"
               />
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <button
               type="submit"
               disabled={loading || !nationalId}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-purple-600 py-2.5 text-white font-medium hover:bg-purple-700 disabled:opacity-50"
+              className="gradient-btn interactive-element w-full flex items-center justify-center gap-2 py-3 text-white font-bold"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               ارسال کد تایید
@@ -84,35 +84,35 @@ export default function ForgotPasswordPage(): React.ReactElement {
           </form>
         ) : (
           <form onSubmit={submitStep2} className="space-y-5">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-on-surface-variant">
               کد تایید به شماره {maskedMobile} ارسال شد.
             </p>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">کد تایید</label>
+              <label className="block text-sm font-medium text-on-surface mb-1.5">کد تایید</label>
               <input
                 inputMode="numeric"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 placeholder="کد ۶ رقمی"
-                className="w-full rounded-lg border border-slate-300 py-2.5 px-3 text-slate-800 focus:border-purple-500 outline-none"
+                className="input-glass w-full py-3 px-3 text-on-surface"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">رمز عبور جدید</label>
+              <label className="block text-sm font-medium text-on-surface mb-1.5">رمز عبور جدید</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="رمز جدید (حداقل ۶ کاراکتر)"
-                className="w-full rounded-lg border border-slate-300 py-2.5 px-3 text-slate-800 focus:border-purple-500 outline-none"
+                className="input-glass w-full py-3 px-3 text-on-surface"
               />
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <button
               type="submit"
               disabled={loading || !otp || newPassword.length < 6}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-purple-600 py-2.5 text-white font-medium hover:bg-purple-700 disabled:opacity-50"
+              className="gradient-btn interactive-element w-full flex items-center justify-center gap-2 py-3 text-white font-bold"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               تنظیم رمز جدید
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage(): React.ReactElement {
         )}
 
         <div className="text-center mt-6">
-          <Link href="/login" className="text-sm text-purple-600 hover:underline">
+          <Link href="/login" className="text-sm text-primary-container hover:underline">
             بازگشت به ورود
           </Link>
         </div>

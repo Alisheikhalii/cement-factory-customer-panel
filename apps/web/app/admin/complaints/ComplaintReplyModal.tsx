@@ -44,8 +44,8 @@ export function ComplaintReplyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="glass-panel max-h-[90vh] w-full max-w-lg overflow-auto rounded-3xl p-6 shadow-lg animate-fade-up">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-800">شکایت مشتری</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="بستن">

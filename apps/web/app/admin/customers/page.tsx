@@ -169,13 +169,13 @@ export default function AdminCustomersPage(): React.ReactElement {
   return (
     <AdminShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <Users className="h-5 w-5" />
           مدیریت مشتریان
         </h2>
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-900"
+          className="gradient-btn interactive-element flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white"
         >
           <Plus className="h-4 w-4" />
           تعریف مشتری جدید
@@ -194,18 +194,20 @@ export default function AdminCustomersPage(): React.ReactElement {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="جستجو (نام، کد تفصیل، کد ملی، موبایل)"
-          className="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="input-glass min-w-64 flex-1 px-3 py-2 text-sm"
         />
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          className="interactive-element rounded-lg border border-outline-variant/60 bg-white/50 px-4 py-2 text-sm text-on-surface-variant transition-colors hover:bg-white/80"
         >
           جستجو
         </button>
       </form>
 
       {actionError && (
-        <p className="mb-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">{actionError}</p>
+        <p className="mb-3 rounded-xl border border-danger/25 bg-danger/10 p-3 text-xs text-danger">
+          {actionError}
+        </p>
       )}
 
       <DataStateView state={state} isEmpty={rows.length === 0} onRetry={reload} skeletonCols={7}>

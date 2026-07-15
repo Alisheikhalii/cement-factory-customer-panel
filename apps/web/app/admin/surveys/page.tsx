@@ -60,7 +60,7 @@ export default function AdminSurveysPage(): React.ReactElement {
   return (
     <AdminShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <PackageCheck className="h-5 w-5" />
           مدیریت نظرسنجی
         </h2>
@@ -68,7 +68,7 @@ export default function AdminSurveysPage(): React.ReactElement {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="input-glass px-3 py-2 text-sm"
           >
             <option value="">همه</option>
             <option value={SurveyStatus.DRAFT}>پیش‌نویس</option>
@@ -77,7 +77,7 @@ export default function AdminSurveysPage(): React.ReactElement {
           </select>
           <button
             onClick={() => setBuilderOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-900"
+            className="gradient-btn interactive-element flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" />
             ایجاد نظرسنجی جدید
@@ -85,7 +85,11 @@ export default function AdminSurveysPage(): React.ReactElement {
         </div>
       </div>
 
-      {error && <p className="mb-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+      {error && (
+        <p className="mb-3 rounded-xl border border-danger/25 bg-danger/10 p-3 text-xs text-danger">
+          {error}
+        </p>
+      )}
 
       <DataStateView
         state={state}
@@ -100,16 +104,16 @@ export default function AdminSurveysPage(): React.ReactElement {
               className: 'bg-slate-100 text-slate-600',
             };
             return (
-              <div key={s.id} className="flex flex-col rounded-xl border border-slate-200 bg-white p-4">
+              <div key={s.id} className="glass-card glass-card-hover flex flex-col rounded-2xl p-5">
                 <div className="mb-2 flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-slate-800">{s.title}</h3>
+                  <h3 className="font-bold text-on-surface">{s.title}</h3>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}
                   >
                     {badge.label}
                   </span>
                 </div>
-                <dl className="mb-4 space-y-1 text-xs text-slate-500">
+                <dl className="mb-4 space-y-1 text-xs text-on-surface-variant">
                   <div className="flex justify-between">
                     <dt>تعداد سوال:</dt>
                     <dd>{formatNumber(s.questionCount)}</dd>

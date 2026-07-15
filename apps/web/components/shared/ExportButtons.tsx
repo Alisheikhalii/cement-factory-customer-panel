@@ -38,7 +38,7 @@ export function ExportButtons({
         <button
           onClick={() => void run('excel', excelPath, excelName ?? 'export.xlsx')}
           disabled={busy !== null}
-          className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-60"
+          className="interactive-element flex items-center gap-2 rounded-lg bg-success px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:brightness-110 disabled:opacity-60"
         >
           <FileSpreadsheet className="h-4 w-4" />
           {busy === 'excel' ? 'در حال آماده‌سازی…' : 'خروجی Excel'}
@@ -48,7 +48,7 @@ export function ExportButtons({
         <button
           onClick={() => void run('pdf', pdfPath, pdfName ?? 'export.pdf')}
           disabled={busy !== null}
-          className="flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600 disabled:opacity-60"
+          className="interactive-element flex items-center gap-2 rounded-lg bg-warning px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:brightness-110 disabled:opacity-60"
         >
           <Printer className="h-4 w-4" />
           {busy === 'pdf' ? 'در حال آماده‌سازی…' : 'چاپ / PDF'}

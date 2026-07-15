@@ -1,21 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Bell,
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Menu,
   MessageSquareWarning,
   PackageCheck,
+  Search,
+  ShieldCheck,
   Users,
+  X,
 } from 'lucide-react';
 import type { AuthUser } from '@cement/shared-types';
 import { apiClient } from '../../lib/api';
 import { authStorage } from '../../lib/auth-storage';
 import { companyInfo } from '../../lib/company-info';
 
-/** آیتم‌های Navbar ادمین (بخش ۹.۹): داشبورد، مشتریان، کارتابل، شکایات، نظرسنجی. */
+/** آیتم‌های منوی ادمین (بخش ۹.۹): داشبورد، مشتریان، کارتابل، شکایات، نظرسنجی. */
 const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'داشبورد', icon: LayoutDashboard },
   { href: '/admin/customers', label: 'مشتریان', icon: Users },
@@ -25,8 +31,8 @@ const NAV_ITEMS = [
 ];
 
 /**
- * پوسته داشبورد ادمین: همان زبان بصری PortalShell مشتری (بخش ۹.۹ — «مچ بودن»)
- * اما با آیتم‌های Navbar ادمین. صفحات محتوا را به‌عنوان children می‌دهند.
+ * پوسته داشبورد ادمین: همان زبان بصری «شیشه صنعتی» PortalShell مشتری
+ * (بخش ۹.۹ — «مچ بودن») با سایدبار شیشه‌ای ثابت و آیتم‌های ناوبری ادمین.
  */
 export function AdminShell({
   user,
@@ -37,6 +43,7 @@ export function AdminShell({
 }): React.ReactElement {
   const pathname = usePathname();
   const router = useRouter();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   async function handleLogout(): Promise<void> {
     try {
@@ -47,47 +54,37 @@ export function AdminShell({
     }
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-xs font-bold text-white">
-            نی‌ریز
-          </div>
-          <h1 className="text-sm font-bold text-slate-800 sm:text-base">
-            داشبورد مدیریت {companyInfo.name}
-          </h1>
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      {/* لوگو */}
+      <div className="flex items-center gap-3 px-6 h-20 shrink-0">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-secondary text-white shadow-md transition-transform duration-300 hover:rotate-6">
+          <ShieldCheck className="h-6 w-6" />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-slate-600 sm:inline">
-            {user.fullName ?? user.username}
-          </span>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            <LogOut className="h-4 w-4" />
-            خروج
-          </button>
+        <div>
+          <p className="text-sm font-extrabold text-on-surface leading-6">{companyInfo.name}</p>
+          <p className="text-[11px] text-on-surface-variant">داشبورد مدیریت</p>
         </div>
-      </header>
+      </div>
 
-      <nav className="bg-gradient-to-l from-slate-900 to-slate-700 px-2 sm:px-6">
-        <ul className="flex flex-wrap gap-1 overflow-x-auto py-1">
+      {/* آیتم‌های ناوبری */}
+      <nav className="custom-scrollbar flex-1 overflow-y-auto px-4 py-2">
+        <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
+                  onClick={() => setDrawerOpen(false)}
+                  className={`nav-item interactive-element flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
                     active
-                      ? 'bg-white/15 font-semibold text-white'
-                      : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                      ? 'bg-gradient-to-l from-primary-container to-secondary text-white shadow-md'
+                      : 'text-on-surface-variant hover:text-primary-container'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-5 w-5" />
                   {item.label}
                 </Link>
               </li>
@@ -96,7 +93,84 @@ export function AdminShell({
         </ul>
       </nav>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
+      {/* خروج */}
+      <div className="p-4 shrink-0">
+        <button
+          onClick={handleLogout}
+          className="interactive-element flex w-full items-center justify-center gap-2 rounded-xl border border-danger/20 bg-danger/5 px-4 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+        >
+          <LogOut className="h-4 w-4" />
+          خروج از حساب
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="dashboard-bg min-h-screen">
+      {/* سایدبار دسکتاپ */}
+      <aside className="glass-panel fixed inset-y-0 right-0 z-40 hidden w-72 border-l border-white/40 lg:block">
+        {sidebarContent}
+      </aside>
+
+      {/* کشوی موبایل */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className="glass-panel absolute inset-y-0 right-0 w-72 border-l border-white/40 shadow-lg">
+            <button
+              onClick={() => setDrawerOpen(false)}
+              className="absolute left-3 top-3 rounded-lg p-1.5 text-on-surface-variant hover:bg-black/5"
+              aria-label="بستن منو"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* هدر */}
+      <header className="glass-panel fixed top-0 left-0 right-0 lg:right-72 z-30 flex h-16 items-center justify-between border-b border-white/40 px-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="interactive-element rounded-lg p-2 text-on-surface-variant hover:bg-black/5 lg:hidden"
+            aria-label="باز کردن منو"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/50 border border-white/60 px-4 py-2 text-sm text-on-surface-variant w-64">
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="truncate">جستجو...</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            className="interactive-element relative rounded-full bg-white/50 border border-white/60 p-2.5 text-on-surface-variant hover:text-primary-container transition-colors"
+            aria-label="اعلان‌ها"
+          >
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-danger ring-2 ring-white" />
+          </button>
+          <div className="flex items-center gap-2.5 rounded-full bg-white/50 border border-white/60 py-1.5 pr-2 pl-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-container to-secondary text-xs font-bold text-white">
+              {(user.fullName ?? user.username).slice(0, 1)}
+            </div>
+            <span className="hidden text-sm font-medium text-on-surface sm:inline">
+              {user.fullName ?? user.username}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* محتوای اصلی */}
+      <main className="lg:mr-72 pt-16">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+      </main>
     </div>
   );
 }

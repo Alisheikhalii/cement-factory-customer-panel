@@ -12,11 +12,11 @@ export default function ComplaintsPage(): React.ReactElement {
   }
   return (
     <PortalShell user={user}>
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800">
+      <h2 className="mb-4 flex items-center gap-2 text-xl font-extrabold text-on-surface">
         <MessageSquareWarning className="h-5 w-5" />
         شکایات
       </h2>
-      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+      <div className="glass-card rounded-2xl p-6 text-sm text-on-surface-variant">
         ماژول شکایات در فاز ۴ فعال می‌شود.
       </div>
     </PortalShell>

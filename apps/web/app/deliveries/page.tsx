@@ -139,7 +139,7 @@ export default function DeliveriesPage(): React.ReactElement {
   return (
     <PortalShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <Truck className="h-5 w-5" />
           تحویل
         </h2>
@@ -151,7 +151,7 @@ export default function DeliveriesPage(): React.ReactElement {
         />
       </div>
 
-      <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1">
+      <div className="glass-card mb-4 inline-flex rounded-xl p-1">
         {VIEWS.map((v) => (
           <button
             key={v.key}
@@ -159,8 +159,10 @@ export default function DeliveriesPage(): React.ReactElement {
               setView(v.key);
               setPage(1);
             }}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              view === v.key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`interactive-element rounded-lg px-3 py-1.5 text-sm transition-all ${
+              view === v.key
+                ? 'bg-gradient-to-l from-primary-container to-secondary font-bold text-white shadow-md'
+                : 'text-on-surface-variant hover:text-primary-container'
             }`}
           >
             {v.label}

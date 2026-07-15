@@ -53,7 +53,7 @@ export default function OrdersPage(): React.ReactElement {
             setDrawerOrder(o);
           }}
           title="اعلام‌بارهای این سفارش"
-          className="text-blue-600 hover:text-blue-800"
+          className="interactive-element text-primary-container hover:text-secondary transition-colors"
         >
           <ListChecks className="h-4 w-4" />
         </button>
@@ -114,7 +114,7 @@ export default function OrdersPage(): React.ReactElement {
   return (
     <PortalShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <ShoppingCart className="h-5 w-5" />
           سفارشات
         </h2>
@@ -128,14 +128,14 @@ export default function OrdersPage(): React.ReactElement {
             setStatus(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="input-glass px-3 py-2 text-sm"
         >
           <option value="">همه سفارشات</option>
           <option value="IN_USE">در حال استفاده</option>
           <option value="COMPLETED">تکمیل‌شده</option>
           <option value="EXPIRED">منقضی</option>
         </select>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-on-surface">
           <input
             type="checkbox"
             checked={hasRemaining}

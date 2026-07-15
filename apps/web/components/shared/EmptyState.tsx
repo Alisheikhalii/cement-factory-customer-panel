@@ -6,7 +6,7 @@ import { Inbox } from 'lucide-react';
  */
 export function EmptyState({ message }: { message?: string }): React.ReactElement {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+    <div className="glass-card flex flex-col items-center justify-center gap-3 rounded-2xl py-16 text-on-surface-variant/70">
       <Inbox className="h-12 w-12" />
       <p className="text-sm">
         {message ??

@@ -60,7 +60,7 @@ export default function AdminComplaintsPage(): React.ReactElement {
   return (
     <AdminShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <MessageSquareWarning className="h-5 w-5" />
           مدیریت شکایات
         </h2>
@@ -70,7 +70,7 @@ export default function AdminComplaintsPage(): React.ReactElement {
             setStatus(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="input-glass px-3 py-2 text-sm"
         >
           <option value="">همه وضعیت‌ها</option>
           <option value={ComplaintStatus.PENDING}>در حال بررسی</option>
@@ -78,7 +78,7 @@ export default function AdminComplaintsPage(): React.ReactElement {
         </select>
       </div>
 
-      <p className="mb-4 text-xs text-slate-500">برای مشاهده و پاسخ، روی هر ردیف کلیک کنید.</p>
+      <p className="mb-4 text-xs text-on-surface-variant/80">برای مشاهده و پاسخ، روی هر ردیف کلیک کنید.</p>
 
       <DataStateView state={state} isEmpty={rows.length === 0} onRetry={reload} skeletonCols={5}>
         <SmartTable

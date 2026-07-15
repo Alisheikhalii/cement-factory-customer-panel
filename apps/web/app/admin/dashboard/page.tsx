@@ -56,14 +56,19 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   return (
     <AdminShell user={user}>
-      <h2 className="mb-4 text-lg font-bold text-slate-800">مرکز فرماندهی</h2>
+      <div className="mb-6 animate-fade-up">
+        <h2 className="text-2xl font-extrabold text-on-surface">خلاصه وضعیت</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          نمای کلی مشتریان، سفارشات و کارتابل اعلام بار.
+        </p>
+      </div>
 
       {/* بخش ۱ — KPI Cards (بخش ۹.۹.۱) */}
       {summary.state === 'loading' ? (
         <SkeletonCards />
       ) : (
         <DataStateView state={summary.state} isEmpty={false} onRetry={summary.reload}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="animate-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               title="کل مشتریان"
               value={formatNumber(k?.totalCustomers ?? 0)}
@@ -129,22 +134,22 @@ export default function AdminDashboardPage(): React.ReactElement {
 
       {/* بخش ۳ و ۴ — نمودارها */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">روند تحویل روزانه (۳۰ روز اخیر)</h3>
+        <div className="glass-card glass-card-hover rounded-2xl p-5">
+          <h3 className="mb-4 text-sm font-bold text-on-surface">روند تحویل روزانه (۳۰ روز اخیر)</h3>
           {deliveryTrend.state === 'success' && deliveryTrend.data ? (
             <DeliveryTrendChart points={deliveryTrend.data} />
           ) : (
-            <div className="h-64 animate-pulse rounded-lg bg-slate-100" />
+            <div className="h-64 animate-pulse rounded-xl bg-surface-container/70" />
           )}
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">
+        <div className="glass-card glass-card-hover rounded-2xl p-5">
+          <h3 className="mb-4 text-sm font-bold text-on-surface">
             روند ثبت اعلام بار (به تفکیک وضعیت)
           </h3>
           {loadingTrend.state === 'success' && loadingTrend.data ? (
             <LoadingRequestTrendChart points={loadingTrend.data} />
           ) : (
-            <div className="h-64 animate-pulse rounded-lg bg-slate-100" />
+            <div className="h-64 animate-pulse rounded-xl bg-surface-container/70" />
           )}
         </div>
       </div>
@@ -182,25 +187,25 @@ function ActivitiesFeed(): React.ReactElement {
   }, []);
 
   return (
-    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+    <div className="glass-card glass-card-hover mt-6 rounded-2xl p-5">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-on-surface">
         <Activity className="h-4 w-4" />
         آخرین فعالیت‌ها
       </h3>
       {!loaded ? (
         <div className="space-y-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-8 animate-pulse rounded bg-slate-100" />
+            <div key={i} className="h-8 animate-pulse rounded-lg bg-surface-container/70" />
           ))}
         </div>
       ) : activities.length === 0 ? (
-        <p className="text-sm text-slate-400">فعالیتی برای نمایش وجود ندارد.</p>
+        <p className="text-sm text-on-surface-variant/70">فعالیتی برای نمایش وجود ندارد.</p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-outline-variant/30">
           {activities.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-              <span className="text-slate-700">{a.text}</span>
-              <span className="shrink-0 text-xs text-slate-400">
+              <span className="text-on-surface">{a.text}</span>
+              <span className="shrink-0 text-xs text-on-surface-variant/70">
                 {new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
                   month: '2-digit',
                   day: '2-digit',

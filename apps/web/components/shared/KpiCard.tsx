@@ -1,6 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 
-/** کارت KPI با عدد بزرگ + آیکون (بخش ۱۰.۷ — KpiCard). */
+/**
+ * کارت KPI شیشه‌ای مطابق مرجع animated_dashboard_hormozgan_cement:
+ * هاله‌ی نور گوشه + مربع آیکون رنگی + عدد بزرگ + زیرنویس/روند (بخش ۱۰.۷).
+ */
 export function KpiCard({
   title,
   value,
@@ -12,25 +15,29 @@ export function KpiCard({
   value: React.ReactNode;
   subtitle?: React.ReactNode;
   icon: LucideIcon;
-  accent?: 'blue' | 'green' | 'amber' | 'red' | 'slate';
+  accent?: 'blue' | 'green' | 'amber' | 'red' | 'slate' | 'primary';
 }): React.ReactElement {
-  const accentMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700',
-    green: 'bg-green-50 text-green-700',
-    amber: 'bg-amber-50 text-amber-700',
-    red: 'bg-red-50 text-red-700',
-    slate: 'bg-slate-100 text-slate-700',
+  const accentMap: Record<string, { icon: string; glow: string }> = {
+    blue: { icon: 'bg-info/10 text-info', glow: 'bg-info/20' },
+    green: { icon: 'bg-success/10 text-success', glow: 'bg-success/20' },
+    amber: { icon: 'bg-warning/10 text-warning', glow: 'bg-warning/20' },
+    red: { icon: 'bg-danger/10 text-danger', glow: 'bg-danger/20' },
+    slate: { icon: 'bg-neutral/10 text-neutral', glow: 'bg-neutral/20' },
+    primary: { icon: 'bg-primary-container/10 text-primary-container', glow: 'bg-primary-container/20' },
   };
+  const a = accentMap[accent] ?? accentMap.blue;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between">
-        <span className="text-sm text-slate-500">{title}</span>
-        <span className={`rounded-lg p-2 ${accentMap[accent]}`}>
+    <div className="glass-card glass-card-hover relative overflow-hidden rounded-2xl p-5">
+      {/* هاله نور گوشه */}
+      <div className={`pointer-events-none absolute -top-8 -left-8 h-24 w-24 rounded-full blur-2xl ${a.glow}`} />
+      <div className="relative flex items-start justify-between">
+        <span className="text-sm font-medium text-on-surface-variant">{title}</span>
+        <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.icon}`}>
           <Icon className="h-5 w-5" />
         </span>
       </div>
-      <div className="mt-3 text-2xl font-bold text-slate-800">{value}</div>
-      {subtitle && <div className="mt-1 text-xs text-slate-400">{subtitle}</div>}
+      <div className="relative mt-3 text-2xl font-extrabold text-on-surface">{value}</div>
+      {subtitle && <div className="relative mt-1.5 text-xs text-on-surface-variant/80">{subtitle}</div>}
     </div>
   );
 }

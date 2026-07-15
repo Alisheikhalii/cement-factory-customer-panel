@@ -65,11 +65,15 @@ export function LoadingRequestDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-start bg-black/40">
-      <div className="h-full w-full max-w-lg overflow-auto bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h3 className="text-lg font-bold text-slate-800">جزئیات درخواست اعلام بار</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="بستن">
+    <div className="fixed inset-0 z-50 flex justify-start bg-black/30 backdrop-blur-sm">
+      <div className="glass-panel h-full w-full max-w-lg overflow-auto border-r border-white/40 shadow-lg">
+        <div className="flex items-center justify-between border-b border-white/40 px-5 py-4">
+          <h3 className="text-lg font-bold text-on-surface">جزئیات درخواست اعلام بار</h3>
+          <button
+            onClick={onClose}
+            className="interactive-element rounded-lg p-1.5 text-on-surface-variant hover:bg-black/5 hover:text-on-surface"
+            aria-label="بستن"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -29,8 +29,8 @@ export function TempPasswordModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="glass-panel w-full max-w-md rounded-3xl p-6 shadow-lg animate-fade-up">
         <div className="mb-3 flex items-center gap-2">
           <span className="rounded-lg bg-blue-50 p-2 text-blue-700">
             <KeyRound className="h-5 w-5" />

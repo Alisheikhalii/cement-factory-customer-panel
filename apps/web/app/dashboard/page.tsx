@@ -47,19 +47,27 @@ export default function DashboardPage(): React.ReactElement {
 
   return (
     <PortalShell user={user}>
-      <h2 className="mb-4 text-lg font-bold text-slate-800">داشبورد</h2>
+      {/* سربرگ خوش‌آمد (مرجع داشبورد) */}
+      <div className="mb-6 animate-fade-up">
+        <h2 className="text-2xl font-extrabold text-on-surface">
+          سلام، {user.fullName ?? user.username} 👋
+        </h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          خلاصه وضعیت حساب و سفارشات شما در یک نگاه.
+        </p>
+      </div>
 
       {summary.state === 'loading' ? (
         <SkeletonCards />
       ) : (
         <DataStateView state={summary.state} isEmpty={false} onRetry={summary.reload}>
           {/* KPI Cards (۸ مورد، بخش ۹.۲) */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="animate-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               title="مانده حساب"
               value={formatCurrency(k?.accountBalance ?? null)}
               icon={Wallet}
-              accent="blue"
+              accent="primary"
             />
             <KpiCard
               title="سفارش‌های فعال"
@@ -110,11 +118,13 @@ export default function DashboardPage(): React.ReactElement {
               title="وضعیت اعتبار"
               value={creditPct === null ? '—' : `${formatNumber(creditPct)}٪`}
               subtitle={
-                <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-surface-container">
                   <div
-                    className="h-2 rounded-full bg-blue-500"
+                    className="relative h-2 overflow-hidden rounded-full bg-gradient-to-l from-primary-container to-secondary"
                     style={{ width: `${creditPct ?? 0}%` }}
-                  />
+                  >
+                    <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                  </div>
                 </div>
               }
               icon={CreditCard}
@@ -138,42 +148,45 @@ export default function DashboardPage(): React.ReactElement {
           </div>
 
           {/* نمودار روند تحویل */}
-          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">روند تحویل ماهانه</h3>
+          <div className="glass-card glass-card-hover mt-6 rounded-2xl p-5">
+            <h3 className="mb-4 text-sm font-bold text-on-surface">روند تحویل ماهانه</h3>
             {trend.state === 'success' && trend.data ? (
               <DeliveryTrendChart points={trend.data.points} />
             ) : (
-              <div className="h-64 animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-64 animate-pulse rounded-xl bg-surface-container/70" />
             )}
           </div>
 
           {/* اطلاعات محصول */}
-          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">اطلاعات محصول</h3>
+          <div className="glass-card glass-card-hover mt-6 rounded-2xl p-5">
+            <h3 className="mb-4 text-sm font-bold text-on-surface">اطلاعات محصول</h3>
             {d && d.products.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="custom-scrollbar overflow-x-auto">
                 <table className="w-full text-right text-sm">
-                  <thead className="text-slate-500">
-                    <tr>
-                      <th className="py-2">کد</th>
-                      <th className="py-2">نام</th>
-                      <th className="py-2 text-left">مانده برگ فروش</th>
-                      <th className="py-2 text-left">اعلام بار امروز</th>
-                      <th className="py-2 text-left">تحویل امروز</th>
+                  <thead className="text-xs font-bold text-on-surface-variant">
+                    <tr className="border-b border-outline-variant/40">
+                      <th className="py-2.5">کد</th>
+                      <th className="py-2.5">نام</th>
+                      <th className="py-2.5 text-left">مانده برگ فروش</th>
+                      <th className="py-2.5 text-left">اعلام بار امروز</th>
+                      <th className="py-2.5 text-left">تحویل امروز</th>
                     </tr>
                   </thead>
                   <tbody>
                     {d.products.map((p) => (
-                      <tr key={p.productId} className="border-t border-slate-100">
-                        <td className="py-2">{p.erpCode}</td>
-                        <td className="py-2">{p.name}</td>
-                        <td className="py-2 text-left tabular-nums">
+                      <tr
+                        key={p.productId}
+                        className="border-t border-outline-variant/30 text-on-surface transition-colors hover:bg-white/50"
+                      >
+                        <td className="py-2.5 font-mono text-xs text-on-surface-variant">{p.erpCode}</td>
+                        <td className="py-2.5 font-medium">{p.name}</td>
+                        <td className="py-2.5 text-left tabular-nums">
                           {formatNumber(p.remainingAllowance)}
                         </td>
-                        <td className="py-2 text-left tabular-nums">
+                        <td className="py-2.5 text-left tabular-nums">
                           {formatNumber(p.todayLoading)}
                         </td>
-                        <td className="py-2 text-left tabular-nums">
+                        <td className="py-2.5 text-left tabular-nums">
                           {formatNumber(p.todayDelivery)}
                         </td>
                       </tr>
@@ -182,15 +195,15 @@ export default function DashboardPage(): React.ReactElement {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-slate-400">محصولی برای نمایش وجود ندارد.</p>
+              <p className="text-sm text-on-surface-variant/70">محصولی برای نمایش وجود ندارد.</p>
             )}
           </div>
 
           {/* اطلاعات کاربری */}
           {d && (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-              <h3 className="mb-3 text-sm font-semibold text-slate-700">اطلاعات کاربری</h3>
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <div className="glass-card glass-card-hover mt-6 rounded-2xl p-5">
+              <h3 className="mb-4 text-sm font-bold text-on-surface">اطلاعات کاربری</h3>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <Info label="نام" value={d.userInfo.name} />
                 <Info label="کد تفصیل" value={d.userInfo.customerCode} />
                 <Info label="کد ملی" value={d.userInfo.nationalId ?? '—'} />
@@ -210,8 +223,8 @@ export default function DashboardPage(): React.ReactElement {
 function Info({ label, value }: { label: string; value: string }): React.ReactElement {
   return (
     <div className="flex gap-2">
-      <dt className="text-slate-400">{label}:</dt>
-      <dd className="text-slate-700">{value}</dd>
+      <dt className="text-on-surface-variant/70">{label}:</dt>
+      <dd className="text-on-surface">{value}</dd>
     </div>
   );
 }

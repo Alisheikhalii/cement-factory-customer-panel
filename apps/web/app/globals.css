@@ -9,53 +9,186 @@
 
 :root {
   color-scheme: light;
-  /* CSS Variables متناظر با design-tokens.ts (بخش ۱۰.۶) */
-  --brand-from: #6d28d9;
-  --brand-to: #4f46e5;
-  --glass-bg: rgba(255, 255, 255, 0.55);
+  /* CSS Variables متناظر با design-tokens.ts (DESIGN.md — Luminous Industrial Glass) */
+  --brand-primary: #380080;
+  --brand-primary-container: #5300b7;
+  --brand-secondary: #4b41e1;
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-bg-panel: rgba(255, 255, 255, 0.4);
   --glass-border: rgba(255, 255, 255, 0.3);
-  --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.1);
-  --shadow-glass-hover: 0 12px 40px rgba(31, 38, 135, 0.18);
+  --glass-border-card: rgba(255, 255, 255, 0.4);
+  --shadow-glass: 0 8px 32px 0 rgba(79, 70, 229, 0.08);
+  --shadow-glass-hover: 0 20px 40px 0 rgba(83, 0, 183, 0.12);
 }
 
 body {
   font-family: 'Vazirmatn', system-ui, sans-serif;
   /* اعداد Tabular برای ستون‌های عددی (بخش ۱۰.۳) */
   font-feature-settings: 'ss01';
+  background-color: #f7f9fb;
+  color: #191c1e;
 }
 
 @layer components {
-  /* کارت Glassmorphism پایه (بخش ۱۰.۳). روی مرورگرهای بدون backdrop-filter، پس‌زمینه مات‌تر Fallback می‌شود. */
+  /*
+   * کارت Glassmorphism (مرجع dashboard: .glass-card).
+   * سطح ۲ DESIGN.md: blur 12px + سطح شیشه‌ای ۰.۵ + مرز سفید ۰.۴.
+   * روی مرورگرهای بدون backdrop-filter، پس‌زمینه مات‌تر Fallback می‌شود.
+   */
   .glass-card {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    box-shadow: var(--shadow-glass);
-    transition:
-      transform 0.25s ease,
-      box-shadow 0.25s ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border-card);
+    border-radius: 1rem;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .glass-card-hover:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-glass-hover);
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(83, 0, 183, 0.2);
   }
 
+  /* پنل شیشه‌ای بزرگ (مرجع: .glass-panel) — Header/Sidebar/جدول‌ها. */
+  .glass-panel {
+    background: var(--glass-bg-panel);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* فیلد ورودی شیشه‌ای (مرجع login: .input-glass). */
+  .input-glass {
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+  }
+
+  .input-glass:focus {
+    border-color: #5300b7;
+    box-shadow: 0 0 15px rgba(83, 0, 183, 0.25);
+    outline: none;
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  /* فیلد فرم روی سطح سفید (کارت‌های داخل پنل) — مرجع dashboard: input تغییر رمز. */
+  .input-soft {
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .input-soft:focus {
+    outline: none;
+    border-color: #5300b7;
+    box-shadow: 0 0 0 1px rgba(83, 0, 183, 0.2);
+  }
+
+  /* دکمه گرادیان برند (مرجع: .gradient-btn — گرادیان ۱۳۵ درجه primary→secondary). */
+  .gradient-btn {
+    background: linear-gradient(135deg, #5300b7 0%, #4b41e1 100%);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .gradient-btn:hover:not(:disabled) {
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.5);
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+  }
+
+  .gradient-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* آیتم ناوبری سایدبار (مرجع dashboard: .nav-item). */
+  .nav-item {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-item:hover {
+    transform: translateX(-4px);
+    background: rgba(83, 0, 183, 0.05);
+    box-shadow: 0 0 15px rgba(83, 0, 183, 0.1);
+  }
+
+  /* عنصر تعاملی: فشرده‌شدن هنگام کلیک (مرجع: .interactive-element). */
+  .interactive-element {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .interactive-element:active {
+    transform: scale(0.96);
+  }
+
+  /* اسکرول‌بار باریک برند (مرجع: .custom-scrollbar). */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(83, 0, 183, 0.1);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(83, 0, 183, 0.2);
+  }
+
+  /* ورود پلکانی فرزندان (مرجع: .animate-stagger) — برای گریدهای ثابت. */
+  .animate-stagger > * {
+    opacity: 0;
+    animation: stagger-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+  .animate-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+  .animate-stagger > *:nth-child(7) { animation-delay: 0.7s; }
+  .animate-stagger > *:nth-child(n + 8) { animation-delay: 0.8s; }
+
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass-card {
+    .glass-card,
+    .glass-panel {
       background: rgba(255, 255, 255, 0.92);
     }
   }
 
-  /* پس‌زمینه Mesh Gradient صفحه داشبورد (بخش ۱۰.۳). */
+  /*
+   * پس‌زمینه صفحات پورتال/داشبورد (DESIGN.md — سطح ۱: گرادیان پایه +
+   * جایگزین سبک‌وزن Shader مرجع: دو هاله رنگی برند بسیار کم‌رنگ).
+   */
   .dashboard-bg {
-    background-color: #f8fafc;
+    background-color: #f7f9fb;
     background-image:
-      radial-gradient(at 15% 20%, rgba(124, 58, 237, 0.14) 0px, transparent 55%),
-      radial-gradient(at 85% 15%, rgba(79, 70, 229, 0.12) 0px, transparent 50%),
-      radial-gradient(at 75% 85%, rgba(139, 92, 246, 0.1) 0px, transparent 55%);
+      radial-gradient(at 15% 20%, rgba(83, 0, 183, 0.08) 0px, transparent 55%),
+      radial-gradient(at 85% 15%, rgba(75, 65, 225, 0.07) 0px, transparent 50%),
+      radial-gradient(at 75% 85%, rgba(114, 56, 213, 0.06) 0px, transparent 55%),
+      linear-gradient(180deg, #f7f9fb 0%, #e0e3e5 100%);
+    background-attachment: fixed;
+  }
+}
+
+@keyframes stagger-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

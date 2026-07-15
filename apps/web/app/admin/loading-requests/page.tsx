@@ -65,7 +65,7 @@ export default function AdminLoadingRequestsPage(): React.ReactElement {
   return (
     <AdminShell user={user}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+        <h2 className="flex items-center gap-2 text-xl font-extrabold text-on-surface">
           <ClipboardList className="h-5 w-5" />
           کارتابل اعلام بار
         </h2>
@@ -75,7 +75,7 @@ export default function AdminLoadingRequestsPage(): React.ReactElement {
             setStatus(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="input-glass px-3 py-2 text-sm"
         >
           <option value={LoadingRequestStatus.SUBMITTED}>در انتظار بررسی</option>
           <option value="">همه وضعیت‌ها (تاریخچه)</option>
@@ -86,7 +86,7 @@ export default function AdminLoadingRequestsPage(): React.ReactElement {
         </select>
       </div>
 
-      <p className="mb-4 text-xs text-slate-500">
+      <p className="mb-4 text-xs text-on-surface-variant/80">
         برای مشاهده جزئیات کامل و تایید/رد، روی هر ردیف کلیک کنید.
       </p>
 

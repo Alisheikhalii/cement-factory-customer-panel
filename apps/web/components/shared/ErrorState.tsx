@@ -9,13 +9,13 @@ export function ErrorState({
   onRetry?: () => void;
 }): React.ReactElement {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
-      <AlertTriangle className="h-12 w-12 text-red-400" />
+    <div className="glass-card flex flex-col items-center justify-center gap-3 rounded-2xl py-16 text-on-surface-variant">
+      <AlertTriangle className="h-12 w-12 text-danger/70" />
       <p className="text-sm">{message ?? 'خطا در دریافت اطلاعات؛ لطفاً بعداً تلاش کنید'}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="mt-2 flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          className="interactive-element mt-2 flex items-center gap-2 rounded-lg border border-outline-variant/60 bg-white/50 px-4 py-2 text-sm text-on-surface transition-colors hover:bg-white/80"
         >
           <RefreshCw className="h-4 w-4" />
           تلاش مجدد
@@ -28,8 +28,8 @@ export function ErrorState({
 /** حالت دسترسی غیرمجاز (بخش ۱۰.۹ — Forbidden 403). */
 export function ForbiddenState(): React.ReactElement {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
-      <AlertTriangle className="h-12 w-12 text-amber-400" />
+    <div className="glass-card flex flex-col items-center justify-center gap-3 rounded-2xl py-16 text-on-surface-variant">
+      <AlertTriangle className="h-12 w-12 text-warning/70" />
       <p className="text-sm">شما دسترسی لازم برای این بخش را ندارید</p>
     </div>
   );

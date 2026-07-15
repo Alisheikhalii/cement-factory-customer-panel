@@ -88,8 +88,8 @@ export function CustomerFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="glass-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-3xl p-6 shadow-lg animate-fade-up">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-800">
             {isEdit ? 'ویرایش مشتری' : 'تعریف مشتری جدید'}
@@ -159,8 +159,8 @@ export function CustomerFormModal({
 }
 
 function inputClass(readOnly: boolean): string {
-  return `w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-600 focus:ring-1 focus:ring-slate-600 ${
-    readOnly ? 'bg-slate-100 text-slate-500' : ''
+  return `input-glass w-full px-3 py-2 text-sm text-on-surface ${
+    readOnly ? '!bg-surface-container/60 text-on-surface-variant' : ''
   }`;
 }
 

@@ -44,15 +44,15 @@ export function SmartTable<T extends { id: string }>({
   const totalPages = pagination ? Math.max(Math.ceil(pagination.total / pagination.pageSize), 1) : 1;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="max-h-[65vh] overflow-auto">
+    <div className="glass-card overflow-hidden rounded-2xl">
+      <div className="custom-scrollbar max-h-[65vh] overflow-auto">
         <table className="w-full text-right text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
+          <thead className="sticky top-0 z-10 bg-surface-container/80 backdrop-blur-md text-on-surface-variant">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`whitespace-nowrap border-b border-slate-200 px-3 py-2.5 font-medium ${
+                  className={`whitespace-nowrap border-b border-outline-variant/50 px-3 py-3 text-xs font-bold ${
                     col.numeric ? 'text-left' : 'text-right'
                   }`}
                 >
@@ -66,8 +66,8 @@ export function SmartTable<T extends { id: string }>({
               <tr
                 key={row.id}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-slate-100 ${
-                  onRowClick ? 'cursor-pointer hover:bg-slate-50' : ''
+                className={`border-b border-outline-variant/30 text-on-surface transition-colors ${
+                  onRowClick ? 'cursor-pointer hover:bg-white/70' : 'hover:bg-white/40'
                 }`}
               >
                 {columns.map((col) => (
@@ -86,7 +86,7 @@ export function SmartTable<T extends { id: string }>({
             ))}
           </tbody>
           {hasSumRow && (
-            <tfoot className="sticky bottom-0 bg-slate-100 font-semibold text-slate-700">
+            <tfoot className="sticky bottom-0 bg-surface-container/90 backdrop-blur-md font-bold text-on-surface">
               <tr>
                 {columns.map((col, index) => (
                   <td
@@ -105,13 +105,13 @@ export function SmartTable<T extends { id: string }>({
       </div>
 
       {pagination && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3 py-2.5 text-sm text-slate-600">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/40 px-3 py-2.5 text-sm text-on-surface-variant">
           <div className="flex items-center gap-2">
             <span>تعداد ردیف:</span>
             <select
               value={pagination.pageSize}
               onChange={(e) => pagination.onPageSizeChange(Number(e.target.value))}
-              className="rounded-md border border-slate-300 px-2 py-1"
+              className="input-soft rounded-md px-2 py-1"
             >
               {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>
@@ -125,7 +125,7 @@ export function SmartTable<T extends { id: string }>({
             <button
               onClick={() => pagination.onPageChange(pagination.page - 1)}
               disabled={pagination.page <= 1}
-              className="flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 disabled:opacity-50"
+              className="interactive-element flex items-center gap-1 rounded-lg border border-outline-variant/60 bg-white/50 px-2.5 py-1.5 transition-colors hover:bg-white/80 disabled:opacity-50"
             >
               <ChevronRight className="h-4 w-4" />
               قبلی
@@ -137,7 +137,7 @@ export function SmartTable<T extends { id: string }>({
             <button
               onClick={() => pagination.onPageChange(pagination.page + 1)}
               disabled={pagination.page >= totalPages}
-              className="flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 disabled:opacity-50"
+              className="interactive-element flex items-center gap-1 rounded-lg border border-outline-variant/60 bg-white/50 px-2.5 py-1.5 transition-colors hover:bg-white/80 disabled:opacity-50"
             >
               بعدی
               <ChevronLeft className="h-4 w-4" />

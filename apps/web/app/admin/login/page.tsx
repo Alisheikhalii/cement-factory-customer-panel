@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, User, Lock, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Loader2, ShieldCheck } from 'lucide-react';
 import type { LoginResponse } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../../lib/api';
 import { authStorage } from '../../../lib/auth-storage';
@@ -13,7 +13,7 @@ import { adminLoginSchema, type AdminLoginForm } from '../../../lib/auth-schemas
 
 /**
  * صفحه ورود ادمین — `/admin/login` (بخش ۶.۲ و ۹.۹ PRD).
- * جدا از ورود مشتری؛ نام کاربری شناسه دلخواه ادمین است (نه کد ملی).
+ * همان زبان طراحی شیشه‌ای مرجع ورود؛ پنل تک‌ستونه با آیکن سپر مدیریتی.
  */
 export default function AdminLoginPage(): React.ReactElement {
   const router = useRouter();
@@ -44,73 +44,78 @@ export default function AdminLoginPage(): React.ReactElement {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">داشبورد مدیریت</h1>
-          <p className="text-sm text-slate-500 mt-1">{companyInfo.name}</p>
+    <main className="dashboard-bg min-h-screen flex items-center justify-center p-4">
+      <div className="glass-panel w-full max-w-md rounded-3xl p-8 sm:p-10 shadow-lg">
+        <div className="text-center mb-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-container to-secondary flex items-center justify-center text-white shadow-md">
+            <ShieldCheck className="w-7 h-7" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-on-surface">داشبورد مدیریت</h1>
+          <p className="text-sm text-on-surface-variant mt-1">{companyInfo.name}</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="animate-fade-up" style={{ animationDelay: '0.2s' }}>
+            <label htmlFor="username" className="block text-sm font-medium text-on-surface mb-1.5">
               نام کاربری
             </label>
             <div className="relative">
-              <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/60" />
               <input
                 id="username"
                 placeholder="نام کاربری ادمین"
-                className="w-full rounded-lg border border-slate-300 py-2.5 pr-10 pl-3 text-slate-800 focus:border-slate-700 focus:ring-1 focus:ring-slate-700 outline-none"
+                className="input-glass w-full py-3 pr-11 pl-3 text-on-surface"
                 {...register('username')}
               />
             </div>
             {errors.username && (
-              <p className="text-xs text-red-600 mt-1">{errors.username.message}</p>
+              <p className="text-xs text-danger mt-1.5">{errors.username.message}</p>
             )}
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="animate-fade-up" style={{ animationDelay: '0.3s' }}>
+            <label htmlFor="password" className="block text-sm font-medium text-on-surface mb-1.5">
               رمز عبور
             </label>
             <div className="relative">
-              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Lock className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/60" />
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="رمز عبور"
-                className="w-full rounded-lg border border-slate-300 py-2.5 pr-10 pl-10 text-slate-800 focus:border-slate-700 focus:ring-1 focus:ring-slate-700 outline-none"
+                className="input-glass w-full py-3 pr-11 pl-11 text-on-surface"
                 {...register('password')}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/60 hover:text-on-surface transition-colors"
                 aria-label={showPassword ? 'پنهان کردن رمز' : 'نمایش رمز'}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs text-red-600 mt-1">{errors.password.message}</p>
+              <p className="text-xs text-danger mt-1.5">{errors.password.message}</p>
             )}
           </div>
 
           {serverError && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg bg-danger/10 border border-danger/25 px-3 py-2.5 text-sm text-danger animate-fade-up">
               {serverError}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-slate-800 py-2.5 text-white font-medium hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            ورود
-          </button>
+          <div className="animate-fade-up" style={{ animationDelay: '0.4s' }}>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="gradient-btn interactive-element w-full flex items-center justify-center gap-2 py-3 text-white font-bold"
+            >
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              ورود
+            </button>
+          </div>
         </form>
       </div>
     </main>

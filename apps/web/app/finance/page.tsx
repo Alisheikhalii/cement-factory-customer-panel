@@ -38,20 +38,20 @@ export default function FinancePage(): React.ReactElement {
 
   return (
     <PortalShell user={user}>
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800">
+      <h2 className="mb-4 flex items-center gap-2 text-xl font-extrabold text-on-surface">
         <Wallet className="h-5 w-5" />
         مالی
       </h2>
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
+      <div className="glass-card mb-4 inline-flex flex-wrap gap-1 rounded-xl p-1">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm ${
+            className={`interactive-element rounded-lg px-4 py-2 text-sm transition-all ${
               tab === t.key
-                ? 'border-blue-600 font-semibold text-blue-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'bg-gradient-to-l from-primary-container to-secondary font-bold text-white shadow-md'
+                : 'text-on-surface-variant hover:text-primary-container'
             }`}
           >
             {t.label}
@@ -226,15 +226,15 @@ function StatementsTab(): React.ReactElement {
         {rows.map((s) => (
           <li
             key={s.id}
-            className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 text-sm"
+            className="glass-card glass-card-hover flex items-center justify-between rounded-xl p-3.5 text-sm"
           >
             <div>
-              <span className="font-medium text-slate-700">{s.docNumber}</span>
-              <span className="mr-3 text-slate-400">{formatJalaliDate(s.date)}</span>
-              <span className="mr-3 text-slate-500">{s.description ?? ''}</span>
+              <span className="font-bold text-on-surface">{s.docNumber}</span>
+              <span className="mr-3 text-on-surface-variant/70">{formatJalaliDate(s.date)}</span>
+              <span className="mr-3 text-on-surface-variant">{s.description ?? ''}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="tabular-nums text-slate-700">{formatCurrency(s.amount)}</span>
+              <span className="tabular-nums text-on-surface">{formatCurrency(s.amount)}</span>
               <ExportButtons
                 pdfPath={`/finance/statements/${s.id}/pdf`}
                 pdfName={`statement-${s.docNumber}.pdf`}
@@ -266,9 +266,9 @@ function AssetReportTab(): React.ReactElement {
 
 function SummaryCard({ title, value }: { title: string; value: string }): React.ReactElement {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="text-sm text-slate-500">{title}</div>
-      <div className="mt-2 text-xl font-bold text-slate-800">{value}</div>
+    <div className="glass-card glass-card-hover rounded-2xl p-5">
+      <div className="text-sm text-on-surface-variant">{title}</div>
+      <div className="mt-2 text-xl font-extrabold text-on-surface">{value}</div>
     </div>
   );
 }
@@ -282,8 +282,8 @@ function ReceiptsSection(): React.ReactElement {
 
   return (
     <section className="mt-8">
-      <h3 className="mb-3 text-base font-bold text-slate-800">فیش‌های واریزی</h3>
-      <p className="mb-3 text-xs text-slate-400">
+      <h3 className="mb-3 text-base font-extrabold text-on-surface">فیش‌های واریزی</h3>
+      <p className="mb-3 text-xs text-on-surface-variant/70">
         فرم بارگذاری فیش (Drag &amp; Drop) در فاز ۵ تکمیل بصری می‌شود؛ Endpoint بارگذاری هم‌اکنون فعال است.
       </p>
       <DataStateView
@@ -296,12 +296,12 @@ function ReceiptsSection(): React.ReactElement {
           {rows.map((r) => (
             <li
               key={r.id}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 text-sm"
+              className="glass-card glass-card-hover flex items-center justify-between rounded-xl p-3.5 text-sm"
             >
               <div>
-                <span className="text-slate-700">{formatCurrency(r.amount ?? null)}</span>
-                <span className="mr-3 text-slate-400">{formatJalaliDate(r.uploadedAt)}</span>
-                {r.description && <span className="mr-3 text-slate-500">{r.description}</span>}
+                <span className="text-on-surface">{formatCurrency(r.amount ?? null)}</span>
+                <span className="mr-3 text-on-surface-variant/70">{formatJalaliDate(r.uploadedAt)}</span>
+                {r.description && <span className="mr-3 text-on-surface-variant">{r.description}</span>}
               </div>
               <StatusBadge status={r.status} />
             </li>
