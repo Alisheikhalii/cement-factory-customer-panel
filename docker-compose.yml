@@ -1,0 +1,79 @@
+# ==========================================================================
+# Docker Compose — محیط توسعه پورتال سیمان خاکستری نی‌ریز (فاز ۰)
+# سرویس‌ها: postgres, redis, backend, frontend
+# nginx (Reverse Proxy/SSL) در فاز ۷ افزوده می‌شود.
+# ==========================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cement_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cement}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cement_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-cement_portal}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-cement}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cement_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: cement_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cement}:${POSTGRES_PASSWORD:-cement_dev_password}@postgres:5432/${POSTGRES_DB:-cement_portal}?schema=public
+      REDIS_URL: redis://redis:6379
+      ERP_ADAPTER: ${ERP_ADAPTER:-mock}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_access_secret_min_32_chars_long}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars_long}
+      CORS_ORIGIN: http://localhost:3000
+      API_PORT: 3001
+    ports:
+      - '3001:3001'
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: cement_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres_data:
+  redis_data:

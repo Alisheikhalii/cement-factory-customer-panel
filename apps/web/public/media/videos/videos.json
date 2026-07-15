@@ -1,0 +1,16 @@
+[
+  {
+    "title": "معرفی کارخانه سیمان خاکستری نی‌ریز",
+    "description": "ویدیوی معرفی کارخانه (لینک Placeholder — با لینک واقعی آپارات/یوتیوب جایگزین شود)",
+    "provider": "aparat",
+    "embedUrl": "https://www.aparat.com/video/video/embed/videohash/PLACEHOLDER/vt/frame",
+    "thumbnail": "/media/photos/placeholder-1.svg"
+  },
+  {
+    "title": "فرآیند تولید سیمان",
+    "description": "مراحل تولید سیمان از استخراج تا بسته‌بندی (لینک Placeholder)",
+    "provider": "youtube",
+    "embedUrl": "https://www.youtube.com/embed/PLACEHOLDER",
+    "thumbnail": "/media/photos/placeholder-2.svg"
+  }
+]

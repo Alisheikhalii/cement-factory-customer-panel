@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* فونت Vazirmatn از @fontsource (وزن‌های متغیر) — نصب در فاز ۵ */
+@import '@fontsource/vazirmatn/400.css';
+@import '@fontsource/vazirmatn/500.css';
+@import '@fontsource/vazirmatn/700.css';
+
+:root {
+  color-scheme: light;
+  /* CSS Variables متناظر با design-tokens.ts (بخش ۱۰.۶) */
+  --brand-from: #6d28d9;
+  --brand-to: #4f46e5;
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.1);
+  --shadow-glass-hover: 0 12px 40px rgba(31, 38, 135, 0.18);
+}
+
+body {
+  font-family: 'Vazirmatn', system-ui, sans-serif;
+  /* اعداد Tabular برای ستون‌های عددی (بخش ۱۰.۳) */
+  font-feature-settings: 'ss01';
+}
+
+@layer components {
+  /* کارت Glassmorphism پایه (بخش ۱۰.۳). روی مرورگرهای بدون backdrop-filter، پس‌زمینه مات‌تر Fallback می‌شود. */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-glass);
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+
+  .glass-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-glass-hover);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+    }
+  }
+
+  /* پس‌زمینه Mesh Gradient صفحه داشبورد (بخش ۱۰.۳). */
+  .dashboard-bg {
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(at 15% 20%, rgba(124, 58, 237, 0.14) 0px, transparent 55%),
+      radial-gradient(at 85% 15%, rgba(79, 70, 229, 0.12) 0px, transparent 50%),
+      radial-gradient(at 75% 85%, rgba(139, 92, 246, 0.1) 0px, transparent 55%);
+  }
+}
+
+/* کاهش حرکت برای کاربرانی که ترجیح می‌دهند (دسترس‌پذیری). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

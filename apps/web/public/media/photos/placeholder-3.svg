@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#6D28D9"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#g3)"/>
+  <text x="400" y="260" font-family="Vazirmatn, sans-serif" font-size="34" fill="#ffffff" text-anchor="middle">سیمان خاکستری نی‌ریز</text>
+  <text x="400" y="310" font-family="Vazirmatn, sans-serif" font-size="20" fill="#E9D5FF" text-anchor="middle">تصویر نمونه ۳</text>
+</svg>

@@ -1,0 +1,245 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { KeyRound, Pencil, Plus, Power, Users } from 'lucide-react';
+import type {
+  AdminCustomerDto,
+  CreateCustomerInput,
+  CreateCustomerResult,
+  ResetCustomerPasswordResult,
+  UpdateCustomerInput,
+} from '@cement/shared-types';
+import { apiClient, ApiError } from '../../../lib/api';
+import { useApiData } from '../../../lib/use-api-data';
+import { useRequireAdmin } from '../../../lib/use-require-admin';
+import { formatCurrency, formatJalaliDate } from '../../../lib/format';
+import { AdminShell } from '../../../components/shared/AdminShell';
+import { DataStateView } from '../../../components/shared/DataStateView';
+import { SmartTable, type SmartColumn } from '../../../components/shared/SmartTable';
+import { CustomerFormModal } from './CustomerFormModal';
+import { TempPasswordModal } from './TempPasswordModal';
+
+export default function AdminCustomersPage(): React.ReactElement {
+  const user = useRequireAdmin();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminCustomerDto | null>(null);
+  const [tempPassword, setTempPassword] = useState<{ name: string; password: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('pageSize', String(pageSize));
+    if (search) params.set('search', search);
+    return params.toString();
+  }, [page, pageSize, search]);
+
+  const { state, data, reload } = useApiData<{ rows: AdminCustomerDto[]; total: number }>(
+    async () => {
+      const res = await apiClient.getWithMeta<AdminCustomerDto[]>(`/admin/customers?${queryString}`);
+      return { rows: res.data, total: res.meta?.total ?? res.data.length };
+    },
+    [queryString],
+  );
+
+  const rows = data?.rows ?? [];
+
+  function openCreate(): void {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(customer: AdminCustomerDto): void {
+    setEditing(customer);
+    setFormOpen(true);
+  }
+
+  async function handleSubmit(
+    input: CreateCustomerInput | UpdateCustomerInput,
+  ): Promise<void> {
+    setActionError(null);
+    if (editing) {
+      await apiClient.patch<AdminCustomerDto>(`/admin/customers/${editing.id}`, input);
+    } else {
+      const res = await apiClient.post<CreateCustomerResult>('/admin/customers', input);
+      setTempPassword({ name: res.customer.name, password: res.temporaryPassword });
+    }
+    setFormOpen(false);
+    reload();
+  }
+
+  async function handleToggle(customer: AdminCustomerDto): Promise<void> {
+    setActionError(null);
+    setBusyId(customer.id);
+    try {
+      await apiClient.patch<AdminCustomerDto>(`/admin/customers/${customer.id}/toggle-active`);
+      reload();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'تغییر وضعیت ناموفق بود');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleReset(customer: AdminCustomerDto): Promise<void> {
+    if (!window.confirm(`رمز عبور مشتری «${customer.name}» بازنشانی شود؟`)) {
+      return;
+    }
+    setActionError(null);
+    setBusyId(customer.id);
+    try {
+      const res = await apiClient.patch<ResetCustomerPasswordResult>(
+        `/admin/customers/${customer.id}/reset-password`,
+      );
+      setTempPassword({ name: customer.name, password: res.temporaryPassword });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'بازنشانی رمز ناموفق بود');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const columns: SmartColumn<AdminCustomerDto>[] = [
+    { key: 'name', header: 'نام مشتری' },
+    { key: 'customerCode', header: 'کد تفصیل' },
+    { key: 'mobile', header: 'موبایل' },
+    {
+      key: 'creditLimit',
+      header: 'سقف اعتباری',
+      numeric: true,
+      render: (r) => formatCurrency(r.creditLimit),
+    },
+    {
+      key: 'isActive',
+      header: 'وضعیت',
+      render: (r) => (
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            r.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          {r.isActive ? 'فعال' : 'غیرفعال'}
+        </span>
+      ),
+    },
+    { key: 'createdAt', header: 'تاریخ ایجاد', render: (r) => formatJalaliDate(r.createdAt) },
+    {
+      key: 'actions',
+      header: 'عملیات',
+      render: (r) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => openEdit(r)}
+            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+            title="ویرایش"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => handleToggle(r)}
+            disabled={busyId === r.id}
+            className="rounded border border-amber-200 p-1.5 text-amber-600 hover:bg-amber-50 disabled:opacity-50"
+            title={r.isActive ? 'غیرفعال کردن' : 'فعال کردن'}
+          >
+            <Power className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => handleReset(r)}
+            disabled={busyId === r.id}
+            className="rounded border border-blue-200 p-1.5 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+            title="بازنشانی رمز"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  if (!user) {
+    return <main className="flex min-h-screen items-center justify-center">در حال بارگذاری…</main>;
+  }
+
+  return (
+    <AdminShell user={user}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+          <Users className="h-5 w-5" />
+          مدیریت مشتریان
+        </h2>
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-900"
+        >
+          <Plus className="h-4 w-4" />
+          تعریف مشتری جدید
+        </button>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setSearch(searchInput.trim());
+          setPage(1);
+        }}
+        className="mb-4 flex flex-wrap items-center gap-2"
+      >
+        <input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="جستجو (نام، کد تفصیل، کد ملی، موبایل)"
+          className="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <button
+          type="submit"
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          جستجو
+        </button>
+      </form>
+
+      {actionError && (
+        <p className="mb-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">{actionError}</p>
+      )}
+
+      <DataStateView state={state} isEmpty={rows.length === 0} onRetry={reload} skeletonCols={7}>
+        <SmartTable
+          columns={columns}
+          rows={rows}
+          pagination={{
+            page,
+            pageSize,
+            total: data?.total ?? 0,
+            onPageChange: setPage,
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
+          }}
+        />
+      </DataStateView>
+
+      {formOpen && (
+        <CustomerFormModal
+          customer={editing}
+          onClose={() => setFormOpen(false)}
+          onSubmit={handleSubmit}
+        />
+      )}
+
+      {tempPassword && (
+        <TempPasswordModal
+          customerName={tempPassword.name}
+          password={tempPassword.password}
+          onClose={() => setTempPassword(null)}
+        />
+      )}
+    </AdminShell>
+  );
+}

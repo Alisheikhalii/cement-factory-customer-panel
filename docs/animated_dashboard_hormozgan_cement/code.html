@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>سیمان خاکستری نی‌ریز - داشبورد مشتریان</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#d3bbff",
+                        "surface": "#f7f9fb",
+                        "on-primary-fixed": "#25005a",
+                        "on-secondary-fixed": "#0f0069",
+                        "status-info": "#3B82F6",
+                        "surface-tint": "#7238d5",
+                        "secondary": "#4b41e1",
+                        "secondary-fixed": "#e2dfff",
+                        "inverse-surface": "#2d3133",
+                        "primary": "#380080",
+                        "tertiary-fixed": "#ffdbcc",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-primary-fixed-variant": "#5912bd",
+                        "on-surface": "#191c1e",
+                        "tertiary-earth": "#6b3000",
+                        "on-tertiary-container": "#fa9261",
+                        "surface-container-low": "#f2f4f6",
+                        "on-surface-variant": "#4a4454",
+                        "on-secondary-fixed-variant": "#3322cc",
+                        "on-background": "#191c1e",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#fffbff",
+                        "on-primary-container": "#bd9cff",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#d3bbff",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-fixed": "#eaddff",
+                        "outline": "#7b7486",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "border-glass": "rgba(255, 255, 255, 0.3)",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "tertiary": "#4e1a00",
+                        "on-tertiary-fixed": "#351000",
+                        "tertiary-container": "#722a00",
+                        "surface-glass": "rgba(255, 255, 255, 0.6)",
+                        "primary-container": "#5300b7",
+                        "background": "#f7f9fb",
+                        "status-success": "#16A34A",
+                        "on-tertiary-fixed-variant": "#7a3005",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#ffb595",
+                        "surface-dim": "#d8dadc",
+                        "status-warning": "#D97706",
+                        "secondary-container": "#655dfb",
+                        "status-danger": "#DC2626",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#c3c0ff",
+                        "surface-bright": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#ccc3d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "gap-xs": "8px",
+                        "container-max": "1440px",
+                        "margin-desktop": "32px",
+                        "gap-md": "16px",
+                        "margin-mobile": "16px",
+                        "gap-lg": "24px"
+                    },
+                    "fontFamily": {
+                        "label-xs": ["Vazirmatn"],
+                        "headline-4xl": ["Vazirmatn"],
+                        "headline-2xl": ["Vazirmatn"],
+                        "headline-xl": ["Vazirmatn"],
+                        "headline-3xl": ["Vazirmatn"],
+                        "body-base": ["Vazirmatn"],
+                        "label-tiny": ["Vazirmatn"],
+                        "body-lg": ["Vazirmatn"],
+                        "label-sm": ["Vazirmatn"]
+                    },
+                    "fontSize": {
+                        "label-xs": ["12px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                        "headline-4xl": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-2xl": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "headline-xl": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "headline-3xl": ["30px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "body-base": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-tiny": ["10px", {"lineHeight": "1.0", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: transparent;
+            min-height: 100vh;
+        }
+
+        #shader-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(79, 70, 229, 0.05);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px 0 rgba(83, 0, 183, 0.12);
+            background: rgba(255, 255, 255, 0.7);
+            border-color: rgba(83, 0, 183, 0.2);
+        }
+
+        .nav-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item:hover {
+            transform: translateX(-4px);
+            background: rgba(83, 0, 183, 0.05);
+            box-shadow: 0 0 15px rgba(83, 0, 183, 0.1);
+        }
+
+        .interactive-element {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .interactive-element:active {
+            transform: scale(0.96);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-stagger > * {
+            opacity: 0;
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Generate stagger delays */
+        .animate-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+        .animate-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+        .animate-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+        .animate-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+        .animate-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+        .animate-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(83, 0, 183, 0.1);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(83, 0, 183, 0.2);
+        }
+    </style>
+</head>
+<body class="text-on-surface flex overflow-hidden">
+<canvas id="shader-canvas"></canvas>
+<!-- Mobile Sidebar Overlay -->
+<div class="fixed inset-0 bg-on-surface/20 backdrop-blur-sm z-40 hidden transition-opacity lg:hidden" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<!-- Top App Bar -->
+<header class="fixed top-0 right-0 left-0 lg:right-72 h-16 bg-surface-glass backdrop-blur-md border-b border-border-glass shadow-sm flex justify-between items-center px-4 md:px-margin-desktop w-full lg:w-[calc(100%-18rem)] z-30">
+<div class="flex items-center gap-md">
+<button class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant flex items-center justify-center interactive-element" onclick="toggleSidebar()">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-xl text-lg md:text-headline-xl text-primary font-bold hidden sm:block">داشبورد مشتریان</h1>
+</div>
+<div class="flex items-center gap-2 md:gap-md">
+<!-- Search -->
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="glass-card pl-4 pr-10 py-2 rounded-full text-sm font-label-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 lg:w-64 border-border-glass" placeholder="جستجو..." type="text"/>
+</div>
+<!-- Actions -->
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant relative interactive-element">
+<span class="material-symbols-outlined text-xl md:text-2xl">notifications</span>
+<span class="absolute top-1.5 right-2.5 w-2 h-2 bg-status-danger rounded-full border-2 border-white"></span>
+</button>
+<button class="hidden sm:block p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant interactive-element">
+<span class="material-symbols-outlined text-xl md:text-2xl">settings</span>
+</button>
+<button class="hidden sm:block p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant interactive-element">
+<span class="material-symbols-outlined text-xl md:text-2xl">help</span>
+</button>
+<div class="h-8 w-px bg-border-glass mx-1 md:mx-2 hidden sm:block"></div>
+<!-- Profile -->
+<div class="flex items-center gap-2 cursor-pointer hover:bg-surface-container-low p-1 pr-2 md:pr-3 rounded-full transition-all border border-transparent hover:border-border-glass interactive-element">
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full object-cover border border-border-glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuqJaQ040imD3FrHgAnetLyozc-2X_wBfkX4chBEVpOpuDBigQlgdE5HMvaoHEiTDjx1ikey2fkz7m5AtFpcJ6SW921bVAfUldjJ3539YifZhkO7VElSm32W8rFz0zZ08rTYHwYebuo0ku3gALm1AswvnpF29FkI56ceX-mDafD5DvC-rIJOXXs0bqfdW16V4KnfoMkSzUlCsy1q6soQaILD5dxLsBso-e2T5lCpVeE6ZXJPv-548R"/>
+<span class="font-label-sm text-xs md:text-label-sm text-on-surface-variant hidden md:block">شرکت ساختمانی آلفا</span>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Side Navigation -->
+<nav class="h-screen w-72 fixed right-0 top-0 bg-surface-glass backdrop-blur-xl border-l border-border-glass shadow-[0_8px_32px_0_rgba(79,70,229,0.08)] flex flex-col z-50 overflow-y-auto pb-margin-desktop transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) translate-x-full lg:translate-x-0 custom-scrollbar" id="sidebar">
+<!-- Close button for mobile -->
+<button class="lg:hidden absolute top-4 left-4 p-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-variant transition-colors interactive-element" onclick="toggleSidebar()">
+<span class="material-symbols-outlined">close</span>
+</button>
+<!-- Logo Area -->
+<div class="p-6 md:p-margin-desktop flex flex-col items-center border-b border-border-glass">
+<div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-container to-secondary flex items-center justify-center shadow-lg mb-4 transform hover:rotate-6 transition-transform duration-500">
+<span class="material-symbols-outlined text-on-primary text-3xl" style="font-variation-settings: 'FILL' 1;">factory</span>
+</div>
+<h2 class="font-headline-xl text-lg md:text-headline-xl font-bold text-primary">سیمان خاکستری نی‌ریز</h2>
+<p class="font-label-sm text-xs md:text-label-sm text-on-surface-variant mt-1">پرتال مشتریان</p>
+</div>
+<!-- Nav Links -->
+<div class="flex flex-col gap-1 mt-6 px-4 animate-stagger">
+<a class="nav-item flex items-center gap-md bg-primary-container text-on-primary-container rounded-lg px-4 py-3 shadow-md" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-sm md:text-label-sm font-bold">داشبورد</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-sm md:text-label-sm">مالی</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-sm text-sm md:text-label-sm">سفارشات</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-label-sm text-sm md:text-label-sm">درخواست بارگیری</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-sm text-sm md:text-label-sm">حواله ها</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">poll</span>
+<span class="font-label-sm text-sm md:text-label-sm">نظرسنجی</span>
+</a>
+<a class="nav-item flex items-center gap-md text-on-surface-variant rounded-lg px-4 py-3" href="#">
+<span class="material-symbols-outlined">report_problem</span>
+<span class="font-label-sm text-sm md:text-label-sm">شکایات</span>
+</a>
+</div>
+<div class="mt-auto px-4">
+<div class="glass-card p-4 rounded-xl flex items-center justify-between mt-8 hover:bg-white/60">
+<div>
+<p class="font-label-xs text-xs md:text-label-xs text-on-surface-variant mb-1">پشتیبانی فروش</p>
+<p class="font-label-sm text-sm md:text-label-sm font-bold text-primary" dir="ltr">۰۷۶ - ۳۲۲۲ ۱۲۳۴</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="w-full lg:mr-72 mt-16 p-4 md:p-margin-desktop lg:w-[calc(100%-18rem)] overflow-y-auto h-[calc(100vh-4rem)] custom-scrollbar">
+<div class="max-w-container-max mx-auto space-y-6 md:space-y-gap-lg pb-12 animate-stagger">
+<!-- Welcome Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+<div>
+<h2 class="font-headline-2xl text-xl md:text-headline-2xl font-bold text-on-surface mb-2">خوش آمدید، شرکت ساختمانی آلفا</h2>
+<p class="font-body-base text-sm md:text-body-base text-on-surface-variant">نمای کلی وضعیت حساب و سفارشات شما در سیمان خاکستری نی‌ریز.</p>
+</div>
+<div class="flex flex-wrap gap-2 w-full md:w-auto">
+<button class="flex-1 md:flex-none justify-center glass-card px-4 py-2 rounded-lg font-label-sm text-sm md:text-label-sm text-primary flex items-center gap-2 hover:bg-white/80 interactive-element">
+<span class="material-symbols-outlined text-sm">download</span>
+                    گزارش گیری
+                </button>
+<button class="flex-1 md:flex-none justify-center bg-gradient-to-r from-primary-container to-secondary text-white px-6 py-2 rounded-lg font-label-sm text-sm md:text-label-sm font-bold shadow-md hover:shadow-lg hover:brightness-110 transition-all flex items-center gap-2 interactive-element">
+<span class="material-symbols-outlined text-sm">add</span>
+                    سفارش جدید
+                </button>
+</div>
+</div>
+<!-- KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-gap-md animate-stagger">
+<!-- Balance -->
+<div class="glass-card p-4 md:p-5 rounded-xl flex flex-col justify-between h-auto min-h-[8rem] md:h-32 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-xl group-hover:bg-primary/15 transition-all duration-700"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-sm text-xs md:text-label-sm text-on-surface-variant mb-1">موجودی حساب</p>
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface">۱۲۵,۴۰۰,۰۰۰ <span class="text-xs md:text-sm font-normal text-on-surface-variant">ریال</span></h3>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+</div>
+<div class="flex items-center gap-1 mt-4 relative z-10">
+<span class="material-symbols-outlined text-status-success text-sm animate-bounce">trending_up</span>
+<span class="font-label-xs text-[10px] md:text-label-xs text-status-success font-bold">۵.۲٪</span>
+<span class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant">نسبت به ماه قبل</span>
+</div>
+</div>
+<!-- Active Orders -->
+<div class="glass-card p-4 md:p-5 rounded-xl flex flex-col justify-between h-auto min-h-[8rem] md:h-32 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-status-info/5 rounded-full blur-xl group-hover:bg-status-info/15 transition-all duration-700"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-sm text-xs md:text-label-sm text-on-surface-variant mb-1">سفارشات فعال</p>
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface">۳ <span class="text-xs md:text-sm font-normal text-on-surface-variant">سفارش</span></h3>
+</div>
+<div class="w-10 h-10 rounded-lg bg-status-info/10 border border-status-info/20 flex items-center justify-center text-status-info shrink-0 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">shopping_bag</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 mt-4 relative z-10 w-full">
+<div class="h-1.5 w-full bg-surface-variant/30 rounded-full overflow-hidden">
+<div class="h-full bg-status-info w-2/3 rounded-full relative">
+<div class="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+</div>
+</div>
+<span class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant whitespace-nowrap">۶۶٪ تکمیل شده</span>
+</div>
+</div>
+<!-- Remaining Qty -->
+<div class="glass-card p-4 md:p-5 rounded-xl flex flex-col justify-between h-auto min-h-[8rem] md:h-32 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-status-warning/5 rounded-full blur-xl group-hover:bg-status-warning/15 transition-all duration-700"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-sm text-xs md:text-label-sm text-on-surface-variant mb-1">مانده سهمیه</p>
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface">۱,۲۵۰ <span class="text-xs md:text-sm font-normal text-on-surface-variant">تن</span></h3>
+</div>
+<div class="w-10 h-10 rounded-lg bg-status-warning/10 border border-status-warning/20 flex items-center justify-center text-status-warning shrink-0 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">scale</span>
+</div>
+</div>
+<div class="flex items-center gap-1 mt-4 relative z-10">
+<span class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant">از کل ۲۰۰۰ تن سهمیه ماهانه</span>
+</div>
+</div>
+<!-- Monthly Delivery -->
+<div class="glass-card p-4 md:p-5 rounded-xl flex flex-col justify-between h-auto min-h-[8rem] md:h-32 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-status-success/5 rounded-full blur-xl group-hover:bg-status-success/15 transition-all duration-700"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-sm text-xs md:text-label-sm text-on-surface-variant mb-1">تحویلی ماه جاری</p>
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface">۷۵۰ <span class="text-xs md:text-sm font-normal text-on-surface-variant">تن</span></h3>
+</div>
+<div class="w-10 h-10 rounded-lg bg-status-success/10 border border-status-success/20 flex items-center justify-center text-status-success shrink-0 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+</div>
+<div class="mt-4 relative z-10">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant">پیشرفت تحویل</span>
+<span class="font-label-xs text-[10px] md:text-label-xs font-bold text-status-success">۳۷٪</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Status Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
+<div class="glass-card p-4 rounded-xl flex items-center gap-4 group">
+<div class="w-12 h-12 rounded-full bg-status-info/10 flex items-center justify-center text-status-info shrink-0 group-hover:rotate-12 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant truncate">آخرین درخواست بارگیری</p>
+<p class="font-label-sm text-sm md:text-label-sm font-bold text-on-surface truncate">Req-9823</p>
+</div>
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-status-info/10 text-status-info border border-status-info/30 shrink-0">در صف</span>
+</div>
+<div class="glass-card p-4 rounded-xl flex items-center gap-4 group">
+<div class="w-12 h-12 rounded-full bg-status-success/10 flex items-center justify-center text-status-success shrink-0 group-hover:rotate-12 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant truncate">آخرین صورتحساب</p>
+<p class="font-label-sm text-sm md:text-label-sm font-bold text-on-surface truncate">۱۴۰۲/۰۸/۱۵</p>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1.5 rounded transition-colors interactive-element">
+<span class="material-symbols-outlined text-sm">download</span>
+</button>
+</div>
+<div class="glass-card p-4 rounded-xl flex flex-col justify-center">
+<div class="flex justify-between items-center mb-2">
+<p class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant">وضعیت اعتبار</p>
+<span class="font-label-xs text-[10px] md:text-label-xs font-bold text-primary">عالی</span>
+</div>
+<div class="h-2 w-full bg-surface-variant/30 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-l from-primary to-status-info w-[85%] rounded-full shadow-[0_0_8px_rgba(83,0,183,0.3)]"></div>
+</div>
+</div>
+<div class="glass-card p-4 rounded-xl flex items-center gap-4 group">
+<div class="w-12 h-12 rounded-full bg-surface-dim/20 flex items-center justify-center text-on-surface-variant shrink-0 group-hover:rotate-12 transition-transform">
+<span class="material-symbols-outlined">forum</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-xs text-[10px] md:text-label-xs text-on-surface-variant truncate">آخرین تیکت</p>
+<p class="font-label-sm text-sm md:text-label-sm font-bold text-on-surface truncate">موردی یافت نشد</p>
+</div>
+</div>
+</div>
+<!-- Middle Section: Chart & Profile -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-gap-md animate-stagger">
+<!-- Main Chart -->
+<div class="lg:col-span-2 glass-panel rounded-2xl p-4 md:p-6 overflow-hidden hover:shadow-xl transition-shadow duration-500">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6">
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface">روند تحویل ماهانه (تن)</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 rounded-full bg-primary/10 text-primary font-label-xs text-[10px] border border-primary/20">سال ۱۴۰۲</span>
+</div>
+</div>
+<div class="w-full h-48 md:h-64 bg-gradient-to-t from-surface-variant/10 to-transparent rounded-lg border border-border-glass relative flex items-end justify-between px-2 md:px-4 pb-4 pt-10 overflow-x-auto overflow-y-hidden custom-scrollbar">
+<!-- Grid lines -->
+<div class="absolute inset-0 flex flex-col justify-between py-4 pointer-events-none min-w-[500px]">
+<div class="w-full h-px bg-border-glass/30"></div>
+<div class="w-full h-px bg-border-glass/30"></div>
+<div class="w-full h-px bg-border-glass/30"></div>
+<div class="w-full h-px bg-border-glass/30"></div>
+<div class="w-full h-px bg-border-glass/30"></div>
+</div>
+<!-- Bars -->
+<div class="flex items-end justify-between w-full h-full min-w-[500px] z-10 relative">
+<div class="w-[6%] h-[40%] bg-secondary/40 rounded-t-sm relative group hover:bg-secondary/60 transition-colors"></div>
+<div class="w-[6%] h-[55%] bg-secondary/40 rounded-t-sm relative group hover:bg-secondary/60 transition-colors"></div>
+<div class="w-[6%] h-[30%] bg-secondary/40 rounded-t-sm relative group hover:bg-secondary/60 transition-colors"></div>
+<div class="w-[6%] h-[60%] bg-secondary/40 rounded-t-sm relative group hover:bg-secondary/60 transition-colors"></div>
+<div class="w-[6%] h-[75%] bg-primary/80 rounded-t-sm relative group shadow-[0_0_15px_rgba(56,0,128,0.3)] hover:scale-x-110 transition-transform">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">۷۵۰</div>
+</div>
+<div class="w-[6%] h-[45%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[80%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[90%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[65%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[50%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[70%] bg-secondary/40 rounded-t-sm relative group"></div>
+<div class="w-[6%] h-[85%] bg-secondary/40 rounded-t-sm relative group"></div>
+</div>
+</div>
+<div class="flex justify-between px-2 md:px-4 mt-2 font-label-xs text-[10px] text-on-surface-variant min-w-[500px]">
+<span class="w-[6%] text-center">فروردین</span><span class="w-[6%] text-center">اردیبهشت</span><span class="w-[6%] text-center">خرداد</span><span class="w-[6%] text-center">تیر</span><span class="w-[6%] text-center">مرداد</span><span class="w-[6%] text-center">شهریور</span><span class="w-[6%] text-center">مهر</span><span class="w-[6%] text-center">آبان</span><span class="w-[6%] text-center">آذر</span><span class="w-[6%] text-center">دی</span><span class="w-[6%] text-center">بهمن</span><span class="w-[6%] text-center">اسفند</span>
+</div>
+</div>
+<!-- Information Panels -->
+<div class="space-y-4 md:space-y-gap-md animate-stagger">
+<div class="glass-panel rounded-2xl p-4 md:p-6 hover:shadow-lg transition-all duration-500">
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">person</span>
+                        اطلاعات حساب
+                    </h3>
+<div class="space-y-3">
+<div class="flex flex-col border-b border-border-glass/30 pb-2">
+<span class="font-label-xs text-[10px] text-on-surface-variant">نام خریدار</span>
+<span class="font-label-sm text-sm font-medium text-on-surface">شرکت ساختمانی آلفا</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex flex-col">
+<span class="font-label-xs text-[10px] text-on-surface-variant">کد تفصیلی</span>
+<span class="font-label-sm text-sm font-medium">۸۴۹۳۰۲</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-xs text-[10px] text-on-surface-variant">شناسه ملی</span>
+<span class="font-label-sm text-sm font-medium">۱۰۸۶۱۴۵۲۹۰۱</span>
+</div>
+</div>
+<div class="flex flex-col border-t border-border-glass/30 pt-2">
+<span class="font-label-xs text-[10px] text-on-surface-variant">موبایل</span>
+<span class="font-label-sm text-sm font-medium" dir="ltr">۰۹۱۲ ۳۴۵ ۶۷۸۹</span>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-2xl p-4 md:p-5 border border-primary/10">
+<h4 class="font-label-sm text-sm font-bold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">lock_reset</span>
+                        تغییر رمز عبور
+                    </h4>
+<div class="space-y-2">
+<input class="w-full bg-white/40 border border-border-glass rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-outline-variant transition-all" placeholder="رمز عبور فعلی" type="password"/>
+<input class="w-full bg-white/40 border border-border-glass rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-outline-variant transition-all" placeholder="رمز عبور جدید" type="password"/>
+<button class="w-full bg-primary text-white rounded-lg px-4 py-2 font-label-sm text-sm transition-all hover:brightness-110 shadow-sm interactive-element mt-2">بروزرسانی رمز</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Product Status Table -->
+<div class="glass-panel rounded-2xl overflow-hidden flex flex-col mt-6 md:mt-0 hover:shadow-xl transition-all duration-500 animate-stagger">
+<div class="p-4 md:p-6 border-b border-border-glass/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-white/10">
+<h3 class="font-headline-xl text-lg md:text-headline-xl font-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">category</span>
+                    وضعیت محصولات
+                </h3>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 font-label-sm text-sm interactive-element">
+                    مشاهده همه
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-right border-collapse min-w-[700px]">
+<thead>
+<tr class="bg-surface-container-low/50 text-on-surface-variant font-label-sm text-xs border-b border-border-glass/30">
+<th class="py-3 px-4 font-medium whitespace-nowrap">کد کالا</th>
+<th class="py-3 px-4 font-medium whitespace-nowrap">نام محصول</th>
+<th class="py-3 px-4 font-medium text-center whitespace-nowrap">مانده سهمیه (تن)</th>
+<th class="py-3 px-4 font-medium text-center whitespace-nowrap">بارگیری امروز</th>
+<th class="py-3 px-4 font-medium text-center whitespace-nowrap">تحویلی امروز</th>
+<th class="py-3 px-4 font-medium text-center whitespace-nowrap">وضعیت</th>
+</tr>
+</thead>
+<tbody class="font-body-base text-sm">
+<tr class="border-b border-border-glass/20 hover:bg-white/30 transition-colors group">
+<td class="py-3 px-4 text-on-surface-variant font-mono text-xs">PRD-101</td>
+<td class="py-3 px-4 font-bold text-on-surface group-hover:text-primary transition-colors">سیمان پرتلند تیپ ۲ (فله)</td>
+<td class="py-3 px-4 text-center">۸۵۰</td>
+<td class="py-3 px-4 text-center">۵۰</td>
+<td class="py-3 px-4 text-center">۲۵</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-block px-2 py-1 rounded bg-status-success/10 text-status-success text-[10px] font-bold border border-status-success/20">فعال</span>
+</td>
+</tr>
+<tr class="border-b border-border-glass/20 hover:bg-white/30 transition-colors group">
+<td class="py-3 px-4 text-on-surface-variant font-mono text-xs">PRD-102</td>
+<td class="py-3 px-4 font-bold text-on-surface group-hover:text-primary transition-colors">سیمان پرتلند تیپ ۲ (پاکتی)</td>
+<td class="py-3 px-4 text-center">۴۰۰</td>
+<td class="py-3 px-4 text-center">۰</td>
+<td class="py-3 px-4 text-center">۰</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-block px-2 py-1 rounded bg-status-success/10 text-status-success text-[10px] font-bold border border-status-success/20">فعال</span>
+</td>
+</tr>
+<tr class="border-b border-border-glass/20 hover:bg-white/30 transition-colors group">
+<td class="py-3 px-4 text-on-surface-variant font-mono text-xs">PRD-105</td>
+<td class="py-3 px-4 font-bold text-on-surface group-hover:text-primary transition-colors">سیمان پرتلند پوزولانی</td>
+<td class="py-3 px-4 text-center text-status-danger font-bold">۰</td>
+<td class="py-3 px-4 text-center">۰</td>
+<td class="py-3 px-4 text-center">۰</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-block px-2 py-1 rounded bg-status-warning/10 text-status-warning text-[10px] font-bold border border-status-warning/20">اتمام سهمیه</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<script>
+    // Shader Logic
+    const canvas = document.getElementById('shader-canvas');
+    const gl = canvas.getContext('webgl');
+
+    if (gl) {
+        const vertexSource = `
+            attribute vec2 position;
+            varying vec2 v_texCoord;
+            void main() {
+                v_texCoord = position * 0.5 + 0.5;
+                v_texCoord.y = 1.0 - v_texCoord.y;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentSource = `
+            precision highp float;
+            varying vec2 v_texCoord;
+            uniform float u_time;
+            uniform vec2 u_resolution;
+
+            void main() {
+                vec2 uv = v_texCoord;
+                float n = sin(uv.x * 2.5 + u_time * 0.1) * cos(uv.y * 2.0 + u_time * 0.15);
+                n += sin(uv.y * 3.0 - u_time * 0.2) * 0.3;
+                vec3 color1 = vec3(0.97, 0.98, 1.0); // Slightly adjusted for transparency feel
+                vec3 color2 = vec3(0.92, 0.94, 0.98); 
+                vec3 finalColor = mix(color1, color2, n * 0.1 + 0.5);
+                float grain = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
+                finalColor -= grain * 0.015;
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        const program = gl.createProgram();
+        gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, vertexSource));
+        gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, fragmentSource));
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const timeLocation = gl.getUniformLocation(program, "u_time");
+        const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+        function render(time) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform1f(timeLocation, time * 0.001);
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+    }
+
+    // Sidebar Toggle
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (sidebar.classList.contains('translate-x-full')) {
+            sidebar.classList.remove('translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            overlay.classList.remove('hidden');
+            setTimeout(() => overlay.classList.add('opacity-100'), 10);
+        } else {
+            sidebar.classList.add('translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            overlay.classList.remove('opacity-100');
+            setTimeout(() => overlay.classList.add('hidden'), 500);
+        }
+    }
+</script>
+</body></html>

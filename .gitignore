@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Prisma
+apps/api/prisma/*.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+
+# Turbo
+.turbo/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Uploads (local receipt files - see PRD 7.4)
+apps/api/uploads/
+apps/api/storage/
+storage/

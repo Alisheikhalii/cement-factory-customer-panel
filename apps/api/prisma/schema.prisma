@@ -1,0 +1,469 @@
+// ==========================================================================
+// Prisma Schema — پورتال سیمان خاکستری نی‌ریز
+// عیناً طبق بخش ۵.۳ PRD. تغییر نام فیلد/Enum بدون تایید و مستندسازی ممنوع است.
+// قرارداد Soft Delete طبق بخش ۵.۲ فقط روی موجودیت‌های مرجع اعمال می‌شود.
+// ==========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER & CUSTOMER ====================
+
+model Customer {
+  id            String   @id @default(cuid())
+  erpCustomerId String?  @unique // شناسه مشتری در ERP (کد تفصیل)
+  customerCode  String   @unique // کد تفصیل
+  nationalId    String? // کد ملی
+  economicCode  String? // کد اقتصادی
+  name          String // نام مشتری
+  address       String?  @db.Text
+  postalCode    String?
+  mobile        String   @unique // موبایل - OTP و پیش‌فرض recipientMobile (BR-24)؛ Username ورود نیست
+  creditLimit   Decimal? @db.Decimal(18, 2) // اعتبار
+  creditBalance Decimal? @db.Decimal(18, 2) // مانده اعتبار فعلی
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false) // Soft Delete - بخش ۵.۲
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  user            User?
+  orders          Order[]
+  loadingRequests LoadingRequest[]
+  transactions    FinancialTransaction[]
+  complaints      Complaint[]
+  surveyAnswers   SurveyAnswer[]
+  paymentReceipts PaymentReceipt[]
+  notifications   Notification[]
+
+  @@index([isDeleted])
+}
+
+model User {
+  id                String    @id @default(cuid())
+  customerId        String?   @unique // هر مشتری یک کاربر؛ برای ADMIN مقدار null
+  customer          Customer? @relation(fields: [customerId], references: [id])
+  username          String    @unique // CUSTOMER = کد ملی (BR-28)؛ ADMIN = شناسه انتخابی ادمین
+  fullName          String? // نام کامل - عمدتاً نمایش نام ادمین
+  passwordHash      String
+  role              Role      @default(CUSTOMER)
+  isActive          Boolean   @default(true)
+  lastLoginAt       DateTime?
+  lastActivityAt    DateTime? // KPI «کاربران آنلاین» داشبورد ادمین (۹.۹.۱)
+  mustResetPassword Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  deletedBy         String?
+
+  // قانون سطح اپلیکیشن (نه DB Constraint):
+  // role=CUSTOMER ⇒ customerId اجباری؛ role=ADMIN ⇒ customerId باید null باشد
+  @@index([role])
+  @@index([isDeleted])
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN // مدیر فروش کارخانه - داشبورد ادمین (۹.۹)
+}
+
+// ==================== PRODUCT / CARRIER ====================
+
+model Product {
+  id        String      @id @default(cuid())
+  erpCode   String      @unique // کد محصول
+  name      String
+  type      ProductType
+  isActive  Boolean     @default(true)
+  isDeleted Boolean     @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  orders          Order[]
+  loadingRequests LoadingRequest[]
+  deliveries      Delivery[]
+
+  @@index([isDeleted])
+}
+
+enum ProductType {
+  BAGGED // پاکتی
+  BULK // فله
+}
+
+model Carrier {
+  id          String    @id @default(cuid())
+  name        String // نام شرکت باربری
+  contactInfo String?
+  isActive    Boolean   @default(true)
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  loadingRequests LoadingRequest[]
+  deliveries      Delivery[]
+
+  @@index([isDeleted])
+}
+
+// ==================== ORDER ====================
+
+model Order {
+  id                String      @id @default(cuid())
+  erpOrderId        String?     @unique
+  orderNumber       String      @unique
+  customerId        String
+  customer          Customer    @relation(fields: [customerId], references: [id])
+  productId         String
+  product           Product     @relation(fields: [productId], references: [id])
+  orderDate         DateTime
+  totalQty          Decimal     @db.Decimal(18, 3) // مقدار
+  deliveredQty      Decimal     @default(0) @db.Decimal(18, 3) // مقدار حمل‌شده
+  remainingQty      Decimal     @db.Decimal(18, 3) // مقدار باقیمانده
+  basePrice         Decimal     @db.Decimal(18, 2) // فی پایه
+  baseAmount        Decimal     @db.Decimal(18, 2) // مبلغ پایه
+  deliveredAmount   Decimal     @default(0) @db.Decimal(18, 2) // مبلغ حمل‌شده
+  vatAmount         Decimal     @db.Decimal(18, 2) // ارزش افزوده
+  priceWithFactors  Decimal     @db.Decimal(18, 2) // فی با عوامل
+  amountWithFactors Decimal     @db.Decimal(18, 2) // مبلغ با عوامل
+  remainingAmount   Decimal     @db.Decimal(18, 2) // مبلغ باقیمانده
+  status            OrderStatus @default(IN_USE)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  loadingRequests LoadingRequest[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+enum OrderStatus {
+  IN_USE // در حال استفاده
+  COMPLETED // تکمیل‌شده
+  EXPIRED // منقضی
+}
+
+// ==================== LOADING REQUEST (اعلام بار) ====================
+
+model LoadingRequest {
+  id                    String               @id @default(cuid())
+  requestNumber         String               @unique // شماره اعلام بار
+  orderId               String
+  order                 Order                @relation(fields: [orderId], references: [id])
+  customerId            String
+  customer              Customer             @relation(fields: [customerId], references: [id])
+  productId             String
+  product               Product              @relation(fields: [productId], references: [id])
+  requestedQty          Decimal              @db.Decimal(18, 3) // مقدار درخواستی
+  vehicleType           VehicleType // نوع خودرو (فقط مشتری تعیین می‌کند)
+  loadType              LoadType // نوع بار: فیکس/غیرفیکس
+  requestDate           DateTime // تاریخ درخواستی بارگیری (باید = فردا)
+  destinationCity       String // شهر مقصد بار
+  additionalAddress     String?              @db.Text // آدرس تکمیلی و توضیحات
+  destinationPostalCode String? // کد پستی مقصد بار
+  recipientMobile       String // موبایل تحویل‌گیرنده (BR-24)
+  carrierId             String? // باربری - اختیاری
+  carrier               Carrier?             @relation(fields: [carrierId], references: [id])
+  carrierSetBy          CarrierSetBy?
+  status                LoadingRequestStatus @default(SUBMITTED)
+  submittedAt           DateTime             @default(now())
+  reviewedAt            DateTime?
+  reviewedBy            String? // userId ادمین تایید/ردکننده
+  reviewedByNote        String?              @db.Text // دلیل رد/تایید (نمایش به مشتری)
+  canceledAt           DateTime?
+  loadedAt             DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  delivery Delivery?
+
+  @@index([customerId])
+  @@index([orderId])
+  @@index([status])
+}
+
+enum VehicleType {
+  TRAILER // تریلی
+  FLATBED // کفی
+  DUMP // کمپرسی
+  TEN_WHEEL // ده چرخ
+}
+
+enum LoadType {
+  FIXED // فیکس: بارگیری کامل کامیون
+  NON_FIXED // غیرفیکس: تناژ متغیر
+}
+
+enum CarrierSetBy {
+  CUSTOMER
+  FACTORY
+}
+
+enum LoadingRequestStatus {
+  SUBMITTED // ثبت شده
+  APPROVED // تایید شده
+  REJECTED // رد شده
+  LOADED // بارگیری شده
+  CANCELED // لغو شده
+}
+
+// ==================== DELIVERY (تحویل) ====================
+
+model Delivery {
+  id                String         @id @default(cuid())
+  weighingNumber    String         @unique // شماره توزین
+  loadingRequestId  String         @unique
+  loadingRequest    LoadingRequest @relation(fields: [loadingRequestId], references: [id])
+  deliveryDate      DateTime
+  carrierId         String?
+  carrier           Carrier?       @relation(fields: [carrierId], references: [id])
+  vehicleNumber     String? // شماره ماشین - تکمیل توسط کارخانه
+  driverName        String? // راننده - تکمیل توسط کارخانه
+  productId         String
+  product           Product        @relation(fields: [productId], references: [id])
+  deliveredQty      Decimal        @db.Decimal(18, 3) // تحویل
+  basePrice         Decimal        @db.Decimal(18, 2) // فی پایه
+  baseAmount        Decimal        @db.Decimal(18, 2) // مبلغ پایه
+  vatAmount         Decimal        @db.Decimal(18, 2) // ارزش افزوده
+  deductions        Decimal        @default(0) @db.Decimal(18, 2) // کسورات
+  amountWithFactors Decimal        @db.Decimal(18, 2) // مبلغ با عوامل
+  status            DeliveryStatus @default(FINALIZED)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([productId])
+  @@index([deliveryDate])
+}
+
+enum DeliveryStatus {
+  FINALIZED
+  DISPUTED // در صورت وجود شکایت مرتبط
+}
+
+// ==================== FINANCE ====================
+
+model FinancialTransaction {
+  id            String            @id @default(cuid())
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id])
+  docNumber     String // شماره سند
+  date          DateTime
+  operationType String // نوع عملیات
+  bankName      String?
+  accountNumber String?
+  amount        Decimal           @db.Decimal(18, 2)
+  description   String?           @db.Text
+  dueDate       DateTime? // سررسید
+  debit         Decimal?          @db.Decimal(18, 2) // بدهکار
+  credit        Decimal?          @db.Decimal(18, 2) // بستانکار
+  balance       Decimal?          @db.Decimal(18, 2) // مانده
+  status        String
+  source        FinanceSourceType @default(TRANSACTION)
+  createdAt     DateTime          @default(now())
+
+  @@index([customerId])
+  @@index([source])
+  @@index([date])
+}
+
+enum FinanceSourceType {
+  TRANSACTION // تراکنش‌ها
+  STATEMENT // صورت حساب‌ها
+  ASSET_REPORT // گزارش دارایی
+  STATUS_STATEMENT // صورت وضعیت
+}
+
+model PaymentReceipt {
+  id          String        @id @default(cuid())
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  fileUrl     String
+  amount      Decimal?      @db.Decimal(18, 2)
+  description String?       @db.Text
+  uploadedAt  DateTime      @default(now())
+  status      ReceiptStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewNote  String?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+enum ReceiptStatus {
+  PENDING
+  REVIEWED
+  REJECTED
+}
+
+// ==================== SURVEY (فقط چندگزینه‌ای) ====================
+
+model Survey {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  status      SurveyStatus @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime     @default(now())
+  publishedAt DateTime?
+  closedAt    DateTime?
+  isDeleted   Boolean      @default(false)
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  questions SurveyQuestion[]
+  answers   SurveyAnswer[]
+
+  @@index([status])
+  @@index([isDeleted])
+}
+
+enum SurveyStatus {
+  DRAFT // پیش‌نویس
+  PUBLISHED // منتشرشده
+  CLOSED // بسته‌شده
+}
+
+model SurveyQuestion {
+  id        String    @id @default(cuid())
+  surveyId  String
+  survey    Survey    @relation(fields: [surveyId], references: [id])
+  text      String
+  order     Int       @default(0)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  options SurveyOption[]
+
+  @@index([surveyId])
+}
+
+model SurveyOption {
+  id         String         @id @default(cuid())
+  questionId String
+  question   SurveyQuestion @relation(fields: [questionId], references: [id])
+  text       String
+  order      Int            @default(0)
+  isDeleted  Boolean        @default(false)
+  deletedAt  DateTime?
+
+  @@index([questionId])
+}
+
+model SurveyAnswer {
+  id          String   @id @default(cuid())
+  surveyId    String
+  survey      Survey   @relation(fields: [surveyId], references: [id])
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  submittedAt DateTime @default(now())
+
+  details SurveyAnswerDetail[]
+
+  @@unique([surveyId, customerId]) // هر مشتری یک بار به هر نظرسنجی (BR-20)
+  @@index([customerId])
+}
+
+model SurveyAnswerDetail {
+  id               String       @id @default(cuid())
+  surveyAnswerId   String
+  surveyAnswer     SurveyAnswer @relation(fields: [surveyAnswerId], references: [id])
+  questionId       String
+  selectedOptionId String
+
+  @@index([surveyAnswerId])
+}
+
+// ==================== COMPLAINT ====================
+
+model Complaint {
+  id          String          @id @default(cuid())
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  subject     String // موضوع
+  description String          @db.Text // شرح شکایت
+  submittedAt DateTime        @default(now())
+  status      ComplaintStatus @default(PENDING)
+  reply       String?         @db.Text // پاسخ نهایی
+  repliedAt   DateTime?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+enum ComplaintStatus {
+  PENDING // در حال بررسی
+  ANSWERED // پاسخ داده شده
+}
+
+// ==================== NOTIFICATION / AUDIT ====================
+
+model Notification {
+  id         String    @id @default(cuid())
+  customerId String? // null = Broadcast برای همه
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  title      String
+  body       String    @db.Text
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String? // کاربر انجام‌دهنده
+  userRole      Role? // نقش در لحظه عملیات
+  action        String // مثلاً LOADING_REQUEST_APPROVE
+  entityType    String // مثلاً LoadingRequest
+  entityId      String?
+  previousValue Json? // مقدار قبل از تغییر
+  newValue      Json? // مقدار بعد از تغییر
+  ip            String?
+  userAgent     String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+}
+
+// ==================== ATTACHMENT (غیرفعال در فاز ۱ - BR-22) ====================
+// Feature-Flagged Off. هیچ UI/Endpoint فعالی در فاز ۱ از این مدل استفاده نمی‌کند.
+
+model Attachment {
+  id         String    @id @default(cuid())
+  entityType String // مثلاً "Complaint", "LoadingRequest"
+  entityId   String
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  fileSizeKb Int?
+  uploadedBy String?
+  uploadedAt DateTime  @default(now())
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
+  deletedBy  String?
+
+  @@index([entityType, entityId])
+}
+
+// ==================== ERP SYNC ====================
+
+model ErpSyncLog {
+  id            String    @id @default(cuid())
+  entityType    String
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  status        String // SUCCESS / FAILED / RUNNING
+  recordsSynced Int?
+  errorMessage  String?   @db.Text
+}
