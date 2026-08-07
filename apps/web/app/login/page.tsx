@@ -41,7 +41,8 @@ export default function CustomerLoginPage(): React.ReactElement {
     try {
       const res = await apiClient.post<LoginResponse>('/auth/login', values);
       authStorage.save(res.accessToken, res.user, res.csrfToken);
-      router.push('/dashboard');
+      // BR-26: اگر رمز اولیه تغییر نکرده، قبل از هر مسیر دیگری به صفحهٔ تغییر رمز بفرست.
+      router.push(res.user.mustResetPassword ? '/change-password' : '/dashboard');
     } catch (e) {
       setServerError(e instanceof ApiError ? e.message : 'خطا در ورود؛ دوباره تلاش کنید');
     }

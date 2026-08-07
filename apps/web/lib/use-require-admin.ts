@@ -21,6 +21,12 @@ export function useRequireAdmin(): AuthUser | null {
       router.replace('/admin/login');
       return;
     }
+    // BR-26: Guard سراسری Backend برای ادمین هم فعال است؛ اگر پرچم تغییر رمز
+    // روشن باشد، کاربر را به صفحهٔ تغییر رمز هدایت کن.
+    if (stored.mustResetPassword) {
+      router.replace('/change-password');
+      return;
+    }
     setUser(stored);
   }, [router]);
 

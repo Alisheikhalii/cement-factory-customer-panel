@@ -21,8 +21,11 @@ import type {
   FinanceTransactionListData,
   PaymentReceiptDto,
 } from '@cement/shared-types';
+import { FEATURE_FLAGS } from '@cement/shared-types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomerScopeGuard } from '../auth/guards/customer-scope.guard';
+import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
+import { RequiresFeature } from '../../common/guards/feature-flag.decorator';
 import { requireCustomerId } from '../../common/utils/customer-scope.util';
 import { ResponseWithMeta } from '../../common/http/response-with-meta';
 import { sendExcel, sendPdf } from '../../common/http/file-response.util';
@@ -31,10 +34,17 @@ import { FinanceQueryDto } from './dto/finance-query.dto';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
 import { FinanceService, type UploadedFile as MulterFile } from './finance.service';
 
-/** کنترلر مالی (بخش ۱۱.۳) — فقط نقش CUSTOMER. */
+/**
+ * کنترلر مالی (بخش ۱۱.۳) — فقط نقش CUSTOMER.
+ *
+ * فاز پایلوت: کل کنترلر پشت `FEATURE_FINANCE_ENABLED` است. وقتی خاموش باشد همه
+ * مسیرهای /finance/* پاسخ ۴۰۳ با کد FEATURE_DISABLED می‌دهند (نه ۴۰۴). با روشن
+ * کردن پرچم، رفتار عیناً به حالت قبل برمی‌گردد.
+ */
 @ApiTags('finance')
 @ApiBearerAuth()
-@UseGuards(CustomerScopeGuard)
+@UseGuards(CustomerScopeGuard, FeatureFlagGuard)
+@RequiresFeature(FEATURE_FLAGS.FINANCE_ENABLED)
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly service: FinanceService) {}

@@ -97,6 +97,8 @@ export class AuditLogService {
         return `مشتری ${subject} فیش واریزی بارگذاری کرد`;
       case 'CUSTOMER_CREATE':
         return `ادمین ${actor} مشتری جدید ${subject} را ایجاد کرد`;
+      case 'CUSTOMER_DELETE':
+        return `ادمین ${actor} مشتری ${subject} را حذف کرد`;
       case 'SURVEY_PUBLISH':
         return `ادمین ${actor} نظرسنجی «${ref}» را منتشر کرد`;
       default:

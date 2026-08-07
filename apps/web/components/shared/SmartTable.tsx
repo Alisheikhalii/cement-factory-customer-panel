@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { EMPTY_VALUE } from '../../lib/format';
 
 /** تعریف یک ستون SmartTable (بخش ۱۰.۷). */
 export interface SmartColumn<T> {
@@ -11,6 +12,21 @@ export interface SmartColumn<T> {
   numeric?: boolean;
   /** مقدار ردیف جمع برای این ستون (Footer). */
   sumRender?: () => React.ReactNode;
+  /**
+   * ستون قابل مرتب‌سازی. فقط وقتی اثر دارد که جدول Prop `sort` هم گرفته باشد؛
+   * پس جداولی که مرتب‌سازی ندارند دقیقاً مثل قبل رندر می‌شوند.
+   */
+  sortable?: boolean;
+}
+
+/**
+ * وضعیت مرتب‌سازی (اختیاری). مرتب‌سازی سمت سرور انجام می‌شود، نه روی ردیف‌های همین
+ * صفحه؛ وگرنه با صفحه‌بندی نتیجه گمراه‌کننده می‌شد (فقط صفحه جاری مرتب می‌شد).
+ */
+export interface SmartTableSort {
+  key: string;
+  dir: 'asc' | 'desc';
+  onChange: (key: string, dir: 'asc' | 'desc') => void;
 }
 
 export interface SmartTablePagination {
@@ -24,6 +40,20 @@ export interface SmartTablePagination {
 const PAGE_SIZES = [10, 20, 50, 100];
 
 /**
+ * نرمال‌سازی null-safe محتوای یک سلول (رفتار عمومی بخش ۱۰.۷ — نه استثنای پایلوت).
+ *
+ * هر مقدار «نبودِ داده» با «—» نمایش داده می‌شود، نه صفر و نه سلول خالی. این برای هر
+ * دادهٔ ناقصی درست است: صفر یک مقدار واقعی است و نباید جای «نامعلوم» را بگیرد.
+ * ⚠️ عدد صفر و `false` مقادیر معتبرند و دست‌نخورده رد می‌شوند.
+ */
+function nullSafeCell(value: React.ReactNode): React.ReactNode {
+  if (value === null || value === undefined || value === '') {
+    return EMPTY_VALUE;
+  }
+  return value;
+}
+
+/**
  * جدول عمومی با Sticky Header، ردیف جمع، و صفحه‌بندی (بخش ۱۰.۷).
  * یک Props API واحد برای همه صفحات لیستی (DRY) — سفارشات/اعلام‌بار/تحویل/مالی.
  * حالت‌های Loading/Empty/Error توسط DataStateView مدیریت می‌شوند (این کامپوننت فقط Success).
@@ -33,12 +63,15 @@ export function SmartTable<T extends { id: string }>({
   rows,
   hasSumRow,
   pagination,
+  sort,
   onRowClick,
 }: {
   columns: SmartColumn<T>[];
   rows: T[];
   hasSumRow?: boolean;
   pagination?: SmartTablePagination;
+  /** اگر داده نشود، سرستون‌ها مثل قبل متن ساده‌اند (رفتار همه جداول فعلی). */
+  sort?: SmartTableSort;
   onRowClick?: (row: T) => void;
 }): React.ReactElement {
   const totalPages = pagination ? Math.max(Math.ceil(pagination.total / pagination.pageSize), 1) : 1;
@@ -49,16 +82,40 @@ export function SmartTable<T extends { id: string }>({
         <table className="w-full text-right text-sm">
           <thead className="sticky top-0 z-10 bg-surface-container/80 backdrop-blur-md text-on-surface-variant">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`whitespace-nowrap border-b border-outline-variant/50 px-3 py-3 text-xs font-bold ${
-                    col.numeric ? 'text-left' : 'text-right'
-                  }`}
-                >
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const sortable = sort !== undefined && col.sortable === true;
+                const active = sortable && sort.key === col.key;
+                return (
+                  <th
+                    key={col.key}
+                    aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                    className={`whitespace-nowrap border-b border-outline-variant/50 px-3 py-3 text-xs font-bold ${
+                      col.numeric ? 'text-left' : 'text-right'
+                    }`}
+                  >
+                    {sortable ? (
+                      <button
+                        type="button"
+                        // کلیک روی ستون فعال جهت را برعکس می‌کند؛ ستون تازه از نزولی شروع
+                        // می‌شود، چون پیش‌فرض کارتابل «جدیدترین اول» است.
+                        onClick={() =>
+                          sort.onChange(col.key, active && sort.dir === 'desc' ? 'asc' : 'desc')
+                        }
+                        className={`flex items-center gap-1 transition-colors hover:text-on-surface ${
+                          col.numeric ? 'ml-auto flex-row-reverse' : ''
+                        } ${active ? 'text-on-surface' : ''}`}
+                      >
+                        {col.header}
+                        {!active && <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+                        {active && sort.dir === 'asc' && <ChevronUp className="h-3 w-3" />}
+                        {active && sort.dir === 'desc' && <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    ) : (
+                      col.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -77,9 +134,11 @@ export function SmartTable<T extends { id: string }>({
                       col.numeric ? 'text-left tabular-nums' : 'text-right'
                     }`}
                   >
-                    {col.render
-                      ? col.render(row)
-                      : String((row as Record<string, unknown>)[col.key] ?? '')}
+                    {nullSafeCell(
+                      col.render
+                        ? col.render(row)
+                        : ((row as Record<string, unknown>)[col.key] as React.ReactNode),
+                    )}
                   </td>
                 ))}
               </tr>
@@ -95,7 +154,11 @@ export function SmartTable<T extends { id: string }>({
                       col.numeric ? 'text-left tabular-nums' : 'text-right'
                     }`}
                   >
-                    {col.sumRender ? col.sumRender() : index === 0 ? 'جمع کل' : ''}
+                    {col.sumRender
+                      ? nullSafeCell(col.sumRender())
+                      : index === 0
+                        ? 'جمع کل'
+                        : ''}
                   </td>
                 ))}
               </tr>

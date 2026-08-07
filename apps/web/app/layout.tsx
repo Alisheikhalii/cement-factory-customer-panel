@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { OfflineBanner } from '../components/shared/OfflineBanner';
+import { FeatureFlagsProvider } from '../lib/feature-flags';
 
 /**
  * Root Layout — کل سایت RTL و فارسی (بخش ۱۰.۵ PRD).
  * OfflineBanner سراسری (بخش ۱۰.۹ — حالت Offline).
+ * FeatureFlagsProvider سراسری (فاز پایلوت — PILOT_MODE.md).
  */
 /**
  * metadataBase مبنای URLهای نسبی OG/Twitter را مشخص می‌کند (رفع اخطار Next).
@@ -25,7 +27,7 @@ export default function RootLayout({
     <html lang="fa" dir="rtl">
       <body>
         <OfflineBanner />
-        {children}
+        <FeatureFlagsProvider>{children}</FeatureFlagsProvider>
       </body>
     </html>
   );

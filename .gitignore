@@ -26,6 +26,9 @@ pnpm-debug.log*
 # Coverage
 coverage/
 
+# Debug/profiling artifacts (نه بخشی از پروژه — فقط خروجی محلی ابزار)
+trace.txt
+
 # Turbo
 .turbo/
 

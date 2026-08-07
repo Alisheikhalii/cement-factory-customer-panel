@@ -1,6 +1,6 @@
 # ---------- Backend (NestJS) Dockerfile — فاز ۰ (development-oriented) ----------
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+RUN npm install -g pnpm@9.6.0
 WORKDIR /app
 
 # نصب وابستگی‌ها با در نظر گرفتن ساختار Monorepo

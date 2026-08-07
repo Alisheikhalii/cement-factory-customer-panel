@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -14,13 +15,14 @@ import type {
   AdminCustomerDto,
   AuthUser,
   CreateCustomerResult,
+  DeleteCustomerResult,
   ResetCustomerPasswordResult,
 } from '@cement/shared-types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { ResponseWithMeta } from '../../common/http/response-with-meta';
 import { WriteThrottle } from '../../common/throttling/write-throttle.decorator';
+import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { AdminCustomersService } from './admin-customers.service';
@@ -38,11 +40,8 @@ export class AdminCustomersController {
 
   @Get()
   @ApiOperation({ summary: 'لیست/جستجوی مشتریان' })
-  list(
-    @Query('search') search: string | undefined,
-    @Query() query: PaginationQueryDto,
-  ): Promise<ResponseWithMeta<AdminCustomerDto[]>> {
-    return this.service.list(search, query);
+  list(@Query() query: ListCustomersQueryDto): Promise<ResponseWithMeta<AdminCustomerDto[]>> {
+    return this.service.list(query.search, query);
   }
 
   @Post()
@@ -79,5 +78,16 @@ export class AdminCustomersController {
   @ApiOperation({ summary: 'بازنشانی رمز عبور مشتری (رمز موقت جدید)' })
   resetPassword(@Param('id') id: string): Promise<ResetCustomerPasswordResult> {
     return this.service.resetPassword(id);
+  }
+
+  @Delete(':id')
+  @WriteThrottle()
+  @HttpCode(200)
+  @ApiOperation({ summary: 'حذف نرم مشتری + غیرفعال‌سازی حساب کاربری (بخش ۵.۲)' })
+  softDelete(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+  ): Promise<DeleteCustomerResult> {
+    return this.service.softDelete(id, user.userId, user.fullName ?? user.username);
   }
 }

@@ -15,8 +15,13 @@ export interface ExcelExportOptions {
   title: string;
   columns: ExcelColumn[];
   rows: Array<Record<string, unknown>>;
-  /** ردیف جمع Footer (کلید ستون → مقدار). */
-  sumRow?: Record<string, number>;
+  /**
+   * ردیف جمع Footer (کلید ستون → مقدار).
+   * `null` یعنی «مقداری برای جمع‌زدن وجود نداشت» و سلول خالی می‌ماند — عمداً عدد صفر
+   * نوشته نمی‌شود. در Excel سلول خالی (نه «—») استفاده می‌شود تا فرمول‌های کاربر
+   * روی ستون عددی نشکند.
+   */
+  sumRow?: Record<string, number | null>;
 }
 
 /**

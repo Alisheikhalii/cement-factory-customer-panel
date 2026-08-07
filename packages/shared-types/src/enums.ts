@@ -19,6 +19,16 @@ export enum OrderStatus {
   EXPIRED = 'EXPIRED', // منقضی
 }
 
+/**
+ * منشأ ایجاد سفارش.
+ * MANUAL → ثبت دستی توسط ادمین (فاز پایلوت، بدون ERP).
+ * ERP_SYNC → همگام‌سازی خودکار از ERP (رفتار پیش‌فرض بعد از پایلوت).
+ */
+export enum OrderSource {
+  MANUAL = 'MANUAL',
+  ERP_SYNC = 'ERP_SYNC',
+}
+
 export enum VehicleType {
   TRAILER = 'TRAILER', // تریلی
   FLATBED = 'FLATBED', // کفی

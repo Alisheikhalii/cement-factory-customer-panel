@@ -136,6 +136,9 @@ model Order {
   amountWithFactors Decimal     @db.Decimal(18, 2) // مبلغ با عوامل
   remainingAmount   Decimal     @db.Decimal(18, 2) // مبلغ باقیمانده
   status            OrderStatus @default(IN_USE)
+  // منشأ ایجاد سفارش (فاز پایلوت): MANUAL = ثبت دستی ادمین، ERP_SYNC = همگام‌سازی ERP.
+  // پیش‌فرض ERP_SYNC است تا رکوردهای موجود و مسیر عادی بعد از پایلوت بدون تغییر بمانند.
+  source            OrderSource @default(ERP_SYNC)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -143,6 +146,12 @@ model Order {
 
   @@index([customerId])
   @@index([status])
+  @@index([source])
+}
+
+enum OrderSource {
+  MANUAL // ثبت دستی توسط ادمین (دورهٔ پایلوت بدون ERP)
+  ERP_SYNC // همگام‌سازی خودکار از ERP
 }
 
 enum OrderStatus {
@@ -227,14 +236,17 @@ model Delivery {
   carrier           Carrier?       @relation(fields: [carrierId], references: [id])
   vehicleNumber     String? // شماره ماشین - تکمیل توسط کارخانه
   driverName        String? // راننده - تکمیل توسط کارخانه
+  driverMobile      String? // موبایل راننده - اختیاری چون ERP ممکن است ارسال نکند
   productId         String
   product           Product        @relation(fields: [productId], references: [id])
   deliveredQty      Decimal        @db.Decimal(18, 3) // تحویل
-  basePrice         Decimal        @db.Decimal(18, 2) // فی پایه
-  baseAmount        Decimal        @db.Decimal(18, 2) // مبلغ پایه
-  vatAmount         Decimal        @db.Decimal(18, 2) // ارزش افزوده
+  // فیلدهای مالی Nullable هستند: در ثبت دستی (پایلوت) ادمین این مقادیر را در اختیار
+  // ندارد و باید null بماند، نه صفر. صفر یعنی «رایگان» و جمع‌ها را خراب می‌کند.
+  basePrice         Decimal?       @db.Decimal(18, 2) // فی پایه
+  baseAmount        Decimal?       @db.Decimal(18, 2) // مبلغ پایه
+  vatAmount         Decimal?       @db.Decimal(18, 2) // ارزش افزوده
   deductions        Decimal        @default(0) @db.Decimal(18, 2) // کسورات
-  amountWithFactors Decimal        @db.Decimal(18, 2) // مبلغ با عوامل
+  amountWithFactors Decimal?       @db.Decimal(18, 2) // مبلغ با عوامل
   status            DeliveryStatus @default(FINALIZED)
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt

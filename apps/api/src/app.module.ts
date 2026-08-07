@@ -20,6 +20,7 @@ import { SurveysModule } from './modules/surveys/surveys.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PublicContactModule } from './modules/public-contact/public-contact.module';
 import { HealthController } from './health/health.controller';
+import { FeatureFlagsController } from './health/feature-flags.controller';
 
 /**
  * ماژول ریشه برنامه.
@@ -70,7 +71,7 @@ import { HealthController } from './health/health.controller';
     AdminModule,
     PublicContactModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, FeatureFlagsController],
   providers: [
     // ThrottlerGuard سراسری — قبل از منطق کنترلرها اجرا می‌شود و همه مسیرها را
     // در برابر سیل درخواست محافظت می‌کند (بخش ۱۳ PRD).

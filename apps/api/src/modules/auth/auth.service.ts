@@ -71,7 +71,12 @@ export class AuthService {
       throw new AppException('AUTH_001');
     }
 
-    if (!user.isActive || (user.customer && !user.customer.isActive)) {
+    // `isDeleted` مشتری هم بررسی می‌شود: حذف نرم مشتری، User را غیرفعال می‌کند اما
+    // اگر روزی حساب دستی فعال شود، مشتریِ حذف‌شده نباید از این مسیر وارد شود.
+    if (
+      !user.isActive ||
+      (user.customer && (!user.customer.isActive || user.customer.isDeleted))
+    ) {
       throw new AppException('AUTH_001');
     }
 
@@ -99,7 +104,11 @@ export class AuthService {
     }
 
     const user = await this.users.findById(payload.sub);
-    if (!user || !user.isActive || (user.customer && !user.customer.isActive)) {
+    if (
+      !user ||
+      !user.isActive ||
+      (user.customer && (!user.customer.isActive || user.customer.isDeleted))
+    ) {
       throw new AppException('AUTH_003');
     }
 

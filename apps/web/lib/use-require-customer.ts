@@ -21,6 +21,12 @@ export function useRequireCustomer(): AuthUser | null {
       router.replace('/login');
       return;
     }
+    // BR-26: اگر رمز اولیه تغییر نکرده، هر مسیر مشتری را به صفحهٔ تغییر رمز هدایت کن.
+    // این چک از دور زدن ریدایرکت صفحهٔ لاگین با navigate مستقیم جلوگیری می‌کند.
+    if (stored.mustResetPassword) {
+      router.replace('/change-password');
+      return;
+    }
     setUser(stored);
   }, [router]);
 

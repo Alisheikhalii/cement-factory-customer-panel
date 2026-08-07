@@ -8,7 +8,14 @@ interface DeliveryPdfInput {
   to: string | null;
 }
 
-function fmt(n: number): string {
+/**
+ * قالب‌بندی عدد برای PDF. `null`/`undefined` یعنی مقدار در دسترس نیست (مثلاً
+ * تحویل ثبت‌دستی بدون داده‌های مالی) و با «—» نمایش داده می‌شود، نه صفر.
+ */
+function fmt(n: number | null | undefined): string {
+  if (n === null || n === undefined) {
+    return '—';
+  }
   return n.toLocaleString('fa-IR');
 }
 

@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
-import { LoadingRequestStatus } from '@cement/shared-types';
+import { FEATURE_FLAGS, LoadingRequestStatus } from '@cement/shared-types';
 import type { LoadingRequestDto, LoadingRequestListData } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../lib/api';
 import { useApiData } from '../../lib/use-api-data';
+import { useFeatureFlag } from '../../lib/feature-flags';
 import { useRequireCustomer } from '../../lib/use-require-customer';
 import { formatJalaliDate, formatNumber } from '../../lib/format';
 import { PortalShell } from '../../components/shared/PortalShell';
@@ -23,6 +24,7 @@ const CANCELABLE: LoadingRequestStatus[] = [
 
 export default function LoadingRequestsPage(): React.ReactElement {
   const user = useRequireCustomer();
+  const cutoffEnforced = useFeatureFlag(FEATURE_FLAGS.REQUEST_CUTOFF_ENFORCED);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [status, setStatus] = useState('');
@@ -155,8 +157,9 @@ export default function LoadingRequestsPage(): React.ReactElement {
           <option value="CANCELED">لغو‌شده</option>
         </select>
         <p className="text-xs text-on-surface-variant/80">
-          ثبت درخواست جدید فقط تا ساعت ۱۵ (به وقت تهران) برای «فردا» ممکن است (BR-04). لغو
-          درخواست‌های ثبت‌شده/تاییدشده از ستون «عملیات» انجام می‌شود (BR-10).
+          {cutoffEnforced
+            ? 'ثبت درخواست جدید فقط تا ساعت ۱۵ (به وقت تهران) برای «فردا» ممکن است (BR-04). لغو درخواست‌های ثبت‌شده/تاییدشده از ستون «عملیات» انجام می‌شود (BR-10).'
+            : 'در دورهٔ پایلوت محدودیت ساعت ۱۵ موقتاً غیرفعال است؛ تاریخ درخواست همچنان «فردا» ثبت می‌شود. لغو درخواست‌های ثبت‌شده/تاییدشده از ستون «عملیات» انجام می‌شود (BR-10).'}
         </p>
       </div>
 

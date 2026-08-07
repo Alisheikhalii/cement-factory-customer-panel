@@ -6,6 +6,7 @@
 export * from './enums';
 export * from './api-response';
 export * from './error-codes';
+export * from './feature-flags';
 export * from './validators';
 export * from './auth';
 export * from './dto';

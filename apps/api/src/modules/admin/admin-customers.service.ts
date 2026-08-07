@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type {
   AdminCustomerDto,
   CreateCustomerInput,
   CreateCustomerResult,
+  DeleteCustomerResult,
   ResetCustomerPasswordResult,
   UpdateCustomerInput,
 } from '@cement/shared-types';
@@ -18,7 +18,8 @@ import { AdminCustomerRepository, type CustomerRow } from './admin-customer.repo
 
 /**
  * سرویس مدیریت مشتریان توسط ادمین (بخش ۹.۹.۲، BR-26/BR-28).
- * ایجاد مشتری → ساخت خودکار User با رمز موقت تصادفی و بازگرداندن آن یک‌بار.
+ * ایجاد مشتری → ساخت خودکار User با رمز اولیه = کد ملی و بازگرداندن آن یک‌بار.
+ * این سیاست دائمی است (نه مخصوص پایلوت): مشتری در اولین ورود مجبور به تغییر آن است.
  */
 @Injectable()
 export class AdminCustomersService {
@@ -40,7 +41,7 @@ export class AdminCustomersService {
 
   /**
    * ایجاد مشتری جدید + User (BR-26). کد ملی تکراری → ADMIN_001.
-   * رمز موقت تصادفی تولید و در پاسخ برگردانده می‌شود (تا ادمین به مشتری اطلاع دهد).
+   * رمز اولیه = کد ملی (BR-28)، با mustResetPassword=true برای تغییر اجباری در اولین ورود.
    */
   async create(
     input: CreateCustomerInput,
@@ -64,7 +65,8 @@ export class AdminCustomersService {
       throw new AppException('ADMIN_001', 'مشتری‌ای با این شماره موبایل از قبل وجود دارد');
     }
 
-    const temporaryPassword = generateTempPassword();
+    // رمز اولیه = کد ملی (BR-28، سیاست دائمی). مشتری در اولین ورود مجبور به تغییر آن است.
+    const temporaryPassword = nationalId;
     const passwordHash = await this.passwords.hash(temporaryPassword);
 
     const created = await this.repo.createWithUser(
@@ -134,12 +136,45 @@ export class AdminCustomersService {
     return toCustomerDto(updated);
   }
 
+  /**
+   * حذف نرم مشتری + غیرفعال‌سازی حساب کاربری او (بخش ۵.۲).
+   * سفارش/اعلام بار/تحویل‌های تاریخی حذف نمی‌شوند (دادهٔ مالی واقعی).
+   */
+  async softDelete(
+    id: string,
+    adminUserId: string,
+    adminName: string,
+  ): Promise<DeleteCustomerResult> {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new AppException('GENERIC_500', 'مشتری مورد نظر یافت نشد');
+    }
+    const ok = await this.repo.softDelete(id, adminUserId);
+    if (!ok) {
+      throw new AppException('GENERIC_500', 'مشتری مورد نظر یافت نشد');
+    }
+    await this.audit.log({
+      userId: adminUserId,
+      userRole: 'ADMIN',
+      action: 'CUSTOMER_DELETE',
+      entityType: 'Customer',
+      entityId: id,
+      actorName: adminName,
+      subjectName: existing.name,
+    });
+    return { deleted: true };
+  }
+
   async resetPassword(id: string): Promise<ResetCustomerPasswordResult> {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new AppException('GENERIC_500', 'مشتری مورد نظر یافت نشد');
     }
-    const temporaryPassword = generateTempPassword();
+    // بازنشانی به کد ملی (BR-28، سیاست دائمی) + mustResetPassword=true.
+    const temporaryPassword = existing.nationalId ?? '';
+    if (temporaryPassword === '') {
+      throw new AppException('GENERIC_500', 'کد ملی مشتری ثبت نشده است — بازنشانی ممکن نیست');
+    }
     const passwordHash = await this.passwords.hash(temporaryPassword);
     const ok = await this.repo.resetPassword(id, passwordHash);
     if (!ok) {
@@ -147,18 +182,6 @@ export class AdminCustomersService {
     }
     return { temporaryPassword };
   }
-}
-
-/** تولید رمز موقت تصادفی ۱۰ کاراکتری (حروف + اعداد، بدون کاراکتر مبهم). */
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < 10; i += 1) {
-    // randomInt (CSPRNG) به‌جای Math.random: رمز موقت مقداری امنیتی است و نباید
-    // قابل‌پیش‌بینی باشد (BR-26 — ایجاد/بازنشانی حساب مشتری).
-    out += chars.charAt(randomInt(chars.length));
-  }
-  return out;
 }
 
 function toCustomerDto(row: CustomerRow): AdminCustomerDto {

@@ -83,4 +83,18 @@ describe('deliveries.mapper — grouping', () => {
     expect(sum.deliveredQty).toBe(23);
     expect(sum.amountWithFactors).toBe(250);
   });
+
+  it('ردیف جمع: مقادیر مالی null می‌مانند وقتی همه‌ی رکوردها null باشند', () => {
+    const sum = buildDeliverySumRow({
+      deliveredQty: new Prisma.Decimal(50),
+      baseAmount: null,
+      vatAmount: null,
+      deductions: new Prisma.Decimal(0),
+      amountWithFactors: null,
+    });
+    expect(sum.deliveredQty).toBe(50);
+    expect(sum.baseAmount).toBeNull();
+    expect(sum.vatAmount).toBeNull();
+    expect(sum.amountWithFactors).toBeNull();
+  });
 });

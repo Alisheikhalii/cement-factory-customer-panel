@@ -80,6 +80,9 @@ export const apiClient = {
   async patch<T>(path: string, body?: unknown, token?: string | null): Promise<T> {
     return (await request<T>(path, { method: 'PATCH', body, token })).data;
   },
+  async del<T>(path: string, token?: string | null): Promise<T> {
+    return (await request<T>(path, { method: 'DELETE', token })).data;
+  },
 };
 
 /**

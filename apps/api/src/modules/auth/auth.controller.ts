@@ -19,6 +19,7 @@ import type {
   RefreshResponse,
 } from '@cement/shared-types';
 import { AuthService } from './auth.service';
+import { AllowWhilePasswordReset } from './decorators/allow-password-reset.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { CsrfGuard, CSRF_COOKIE } from './guards/csrf.guard';
@@ -128,6 +129,9 @@ export class AuthController {
   }
 
   @Patch('change-password')
+  // تنها مسیری که در حالت «اجبار به تغییر رمز اولیه» باز می‌ماند (BR-26)؛
+  // در غیر این صورت کاربر در بن‌بست می‌افتد.
+  @AllowWhilePasswordReset()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'تغییر رمز (کاربر لاگین‌شده)' })
   async changePassword(

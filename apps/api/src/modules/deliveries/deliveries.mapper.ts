@@ -5,12 +5,23 @@ import type {
 } from '@cement/shared-types';
 import { DeliveryStatus } from '@cement/shared-types';
 import type { Prisma } from '@prisma/client';
-import { toNum } from '../../common/utils/decimal.util';
+import { toNum, toNumOrNull } from '../../common/utils/decimal.util';
 import { jalaaliMonthLabel } from '../../common/utils/jalali.util';
 import type { DeliveryWithRelations } from './deliveries.repository';
 
 function toStatus(status: string): DeliveryStatus {
   return DeliveryStatus[status as keyof typeof DeliveryStatus];
+}
+
+/**
+ * جمع null-safe: `null` یعنی «تا اینجا هیچ مقداری نبوده».
+ * اگر همه ورودی‌ها null باشند نتیجه هم null می‌ماند (نه صفر) تا در جدول «—» دیده شود.
+ */
+function addNullable(acc: number | null, value: number | null): number | null {
+  if (value === null) {
+    return acc;
+  }
+  return (acc ?? 0) + value;
 }
 
 export function toDeliveryDto(row: DeliveryWithRelations): DeliveryDto {
@@ -23,14 +34,16 @@ export function toDeliveryDto(row: DeliveryWithRelations): DeliveryDto {
     carrierName: row.carrier?.name ?? null,
     vehicleNumber: row.vehicleNumber,
     driverName: row.driverName,
+    driverMobile: row.driverMobile,
     productId: row.productId,
     productName: row.product.name,
     deliveredQty: toNum(row.deliveredQty),
-    basePrice: toNum(row.basePrice),
-    baseAmount: toNum(row.baseAmount),
-    vatAmount: toNum(row.vatAmount),
+    // مالی‌ها با toNumOrNull: نبودِ مقدار باید null بماند، نه صفر (بخش ۱۰.۷).
+    basePrice: toNumOrNull(row.basePrice),
+    baseAmount: toNumOrNull(row.baseAmount),
+    vatAmount: toNumOrNull(row.vatAmount),
     deductions: toNum(row.deductions),
-    amountWithFactors: toNum(row.amountWithFactors),
+    amountWithFactors: toNumOrNull(row.amountWithFactors),
     status: toStatus(row.status),
   };
 }
@@ -44,10 +57,12 @@ export function buildDeliverySumRow(sums: {
 }): DeliverySumRow {
   return {
     deliveredQty: toNum(sums.deliveredQty),
-    baseAmount: toNum(sums.baseAmount),
-    vatAmount: toNum(sums.vatAmount),
+    // Prisma._sum برای ستون کاملاً null (یا بازه خالی) خودش null برمی‌گرداند و
+    // ردیف‌های null را در جمع نادیده می‌گیرد؛ پس همین کافی است.
+    baseAmount: toNumOrNull(sums.baseAmount),
+    vatAmount: toNumOrNull(sums.vatAmount),
     deductions: toNum(sums.deductions),
-    amountWithFactors: toNum(sums.amountWithFactors),
+    amountWithFactors: toNumOrNull(sums.amountWithFactors),
   };
 }
 
@@ -69,16 +84,19 @@ export function groupDeliveries(
         groupKey: key,
         groupLabel: label,
         deliveredQty: 0,
-        baseAmount: 0,
-        vatAmount: 0,
+        baseAmount: null,
+        vatAmount: null,
         deductions: 0,
-        amountWithFactors: 0,
+        amountWithFactors: null,
       } satisfies DeliveryGroupRow);
     existing.deliveredQty += toNum(row.deliveredQty);
-    existing.baseAmount += toNum(row.baseAmount);
-    existing.vatAmount += toNum(row.vatAmount);
+    existing.baseAmount = addNullable(existing.baseAmount, toNumOrNull(row.baseAmount));
+    existing.vatAmount = addNullable(existing.vatAmount, toNumOrNull(row.vatAmount));
     existing.deductions += toNum(row.deductions);
-    existing.amountWithFactors += toNum(row.amountWithFactors);
+    existing.amountWithFactors = addNullable(
+      existing.amountWithFactors,
+      toNumOrNull(row.amountWithFactors),
+    );
     map.set(key, existing);
   }
   return Array.from(map.values());

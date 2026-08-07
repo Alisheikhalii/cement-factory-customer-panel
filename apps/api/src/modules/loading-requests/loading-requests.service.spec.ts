@@ -52,6 +52,7 @@ function makeOrder(overrides: Partial<{ totalQty: number; status: string; produc
 describe('LoadingRequestService.create — BR-04/05/06/24', () => {
   let repo: RepoMock;
   let notifications: { emitLoadingRequest: jest.Mock };
+  let flags: { isEnabled: jest.Mock };
   let service: LoadingRequestService;
 
   beforeEach(() => {
@@ -62,11 +63,14 @@ describe('LoadingRequestService.create — BR-04/05/06/24', () => {
       findCustomerName: jest.fn().mockResolvedValue({ name: 'شرکت آزمون' }),
     };
     notifications = { emitLoadingRequest: jest.fn().mockResolvedValue(undefined) };
+    // پیش‌فرض تست: مهلت BR-04 اعمال می‌شود (رفتار عادی، پرچم روشن).
+    flags = { isEnabled: jest.fn().mockReturnValue(true) };
     service = new LoadingRequestService(
       repo as never,
       {} as never,
       new LoadingRequestStateMachine(),
       notifications as never,
+      flags as never,
     );
   });
 
@@ -99,6 +103,34 @@ describe('LoadingRequestService.create — BR-04/05/06/24', () => {
     await expect(
       service.create('cust-1', VALID_INPUT, afterCutoff()),
     ).rejects.toMatchObject({ code: 'LOAD_002' });
+  });
+
+  it('پایلوت: با پرچم خاموش، بعد از ۱۵:۰۰ هم ثبت می‌شود (بقیه BRها برجا)', async () => {
+    // فقط قید ساعت برداشته می‌شود؛ تاریخ درخواستی همچنان Backend-ست («فردا») است.
+    flags.isEnabled.mockReturnValue(false);
+    stubValidChain();
+
+    const dto = await service.create('cust-1', VALID_INPUT, afterCutoff());
+
+    expect(dto.status).toBe(LoadingRequestStatus.SUBMITTED);
+    const createArg = repo.createWithSequentialNumber.mock.calls[0][0] as { requestDate: Date };
+    expect(createArg.requestDate).toBeInstanceOf(Date);
+  });
+
+  it('پایلوت: خاموشی پرچم مهلت، اعتبارسنجی موبایل را باز نمی‌کند (BR-24)', async () => {
+    flags.isEnabled.mockReturnValue(false);
+    await expect(
+      service.create('cust-1', { ...VALID_INPUT, recipientMobile: '  ' }, afterCutoff()),
+    ).rejects.toMatchObject({ code: 'LOAD_006' });
+  });
+
+  it('پایلوت: خاموشی پرچم مهلت، سقف مانده را باز نمی‌کند (BR-05)', async () => {
+    flags.isEnabled.mockReturnValue(false);
+    repo.findOrderForValidation.mockResolvedValue(makeOrder({ totalQty: 100 }));
+    repo.sumActiveRequestedQty.mockResolvedValue(new Prisma.Decimal(90)); // مانده = ۱۰
+    await expect(
+      service.create('cust-1', { ...VALID_INPUT, requestedQty: 20 }, afterCutoff()),
+    ).rejects.toMatchObject({ code: 'LOAD_001' });
   });
 
   it('BR-06: سفارش یافت نشد → ORDER_001', async () => {
@@ -158,5 +190,182 @@ describe('LoadingRequestService.create — BR-04/05/06/24', () => {
     await expect(
       service.create('cust-1', { ...VALID_INPUT, requestedQty: 20 }, beforeCutoff()),
     ).resolves.toBeDefined();
+  });
+});
+
+/**
+ * تست واحد `markLoaded` — مسیر «ثبت تحویل دستی» (Task 3 پایلوت) در برابر مسیر ERP.
+ *
+ * هدف اصلی این بلوک اثباتِ همان قید معماری است که در JSDoc خودِ متد آمده:
+ * فرم ادمین **مسیر کد جدیدی نمی‌سازد** — همان `assertTransition`، همان
+ * `markLoadedWithDelivery`، همان اعلان. تنها تفاوت، مبدأ دادهٔ توزین و `null` بودن
+ * مبالغ است (BR-18). پس اگر روزی کسی مسیر موازی بسازد، این تست‌ها می‌شکنند.
+ */
+describe('LoadingRequestService.markLoaded — ثبت دستی در برابر ERP', () => {
+  const MANUAL = {
+    weighingNumber: 'PW-555',
+    deliveryDate: '2026-08-06T08:30:00.000Z',
+    carrierId: 'carrier-9',
+    vehicleNumber: '۱۲ ع ۳۴۵ ایران ۶۳',
+    driverName: 'راننده تست',
+    driverMobile: '09121234567',
+    deliveredQty: 25,
+  };
+
+  let repo: {
+    findByIdWithContext: jest.Mock;
+    nextWeighingNumber: jest.Mock;
+    markLoadedWithDelivery: jest.Mock;
+  };
+  let notifications: { emitLoadingRequest: jest.Mock };
+  let service: LoadingRequestService;
+
+  /** رکوردِ `findByIdWithContext` — همان شکلی که مخزن برمی‌گرداند. */
+  function contextRow(
+    overrides: Partial<{ status: string; requestedQty: number; basePrice: unknown }> = {},
+  ) {
+    return {
+      id: 'lr-1',
+      requestNumber: 'LR-000123',
+      submittedAt: new Date('2026-08-05T06:00:00.000Z'),
+      requestDate: new Date('2026-08-06T06:00:00.000Z'),
+      productId: 'prod-1',
+      orderId: 'order-1',
+      carrierId: null,
+      requestedQty: new Prisma.Decimal(overrides.requestedQty ?? 30),
+      status: overrides.status ?? LoadingRequestStatus.APPROVED,
+      reviewedByNote: null,
+      product: { name: 'سیمان تیپ ۲' },
+      carrier: null,
+      delivery: null,
+      customer: { id: 'cust-1', name: 'شرکت آزمون' },
+      order: {
+        basePrice:
+          'basePrice' in overrides ? overrides.basePrice : new Prisma.Decimal(1_000_000),
+      },
+    };
+  }
+
+  /** رکوردِ خروجیِ تراکنش — باید `LoadingRequestWithRelations` را ارضا کند. */
+  function loadedRow(deliveredQty: number) {
+    return {
+      ...contextRow(),
+      status: LoadingRequestStatus.LOADED,
+      delivery: { id: 'del-1', deliveredQty: new Prisma.Decimal(deliveredQty) },
+    };
+  }
+
+  beforeEach(() => {
+    repo = {
+      findByIdWithContext: jest.fn().mockResolvedValue(contextRow()),
+      nextWeighingNumber: jest.fn().mockResolvedValue('W-000042'),
+      markLoadedWithDelivery: jest.fn().mockResolvedValue(loadedRow(25)),
+    };
+    notifications = { emitLoadingRequest: jest.fn().mockResolvedValue(undefined) };
+    service = new LoadingRequestService(
+      repo as never,
+      {} as never,
+      new LoadingRequestStateMachine(),
+      notifications as never,
+      { isEnabled: jest.fn().mockReturnValue(true) } as never,
+    );
+  });
+
+  /** آرگومان‌های تراکنش: (id, loadedAt, delivery, orderReconcile). */
+  function deliveryArg() {
+    return repo.markLoadedWithDelivery.mock.calls[0][2] as Record<string, unknown>;
+  }
+  function reconcileArg() {
+    return repo.markLoadedWithDelivery.mock.calls[0][3] as Record<string, unknown>;
+  }
+
+  it('BR-18: در حالت دستی هر چهار فیلد مالی null می‌مانند — نه صفر', async () => {
+    const dto = await service.markLoaded('lr-1', MANUAL);
+
+    const delivery = deliveryArg();
+    // صفر یعنی «رایگان» و جمع ستون‌ها را خراب می‌کند؛ null یعنی «نامعلوم».
+    expect(delivery.basePrice).toBeNull();
+    expect(delivery.baseAmount).toBeNull();
+    expect(delivery.vatAmount).toBeNull();
+    expect(delivery.amountWithFactors).toBeNull();
+
+    // مبلغ سفارش نباید افزایش یابد، ولی مقدار تحویل باید ثبت شود.
+    const reconcile = reconcileArg();
+    expect((reconcile.deliveredAmount as Prisma.Decimal).toNumber()).toBe(0);
+    expect((reconcile.deliveredQty as Prisma.Decimal).toNumber()).toBe(MANUAL.deliveredQty);
+    expect(reconcile.orderId).toBe('order-1');
+
+    expect(dto.status).toBe(LoadingRequestStatus.LOADED);
+  });
+
+  it('دادهٔ فرم ادمین عیناً به Delivery می‌رود (از جمله موبایل راننده)', async () => {
+    await service.markLoaded('lr-1', MANUAL);
+
+    const delivery = deliveryArg();
+    expect(delivery.driverMobile).toBe(MANUAL.driverMobile);
+    expect(delivery.driverName).toBe(MANUAL.driverName);
+    expect(delivery.vehicleNumber).toBe(MANUAL.vehicleNumber);
+    expect(delivery.carrierId).toBe(MANUAL.carrierId);
+    expect(delivery.weighingNumber).toBe(MANUAL.weighingNumber);
+    expect(delivery.deliveryDate).toEqual(new Date(MANUAL.deliveryDate));
+    // شمارهٔ توزین از فرم آمده، پس نباید شمارهٔ خودکار تولید شود.
+    expect(repo.nextWeighingNumber).not.toHaveBeenCalled();
+
+    // همان اعلانِ مسیر موجود — نه یک اعلان اختصاصیِ پایلوت.
+    expect(notifications.emitLoadingRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('State Machine مسیر دستی را هم گیت می‌کند: SUBMITTED → LOADED رد می‌شود (LOAD_004)', async () => {
+    repo.findByIdWithContext.mockResolvedValue(
+      contextRow({ status: LoadingRequestStatus.SUBMITTED }),
+    );
+
+    await expect(service.markLoaded('lr-1', MANUAL)).rejects.toMatchObject({
+      code: 'LOAD_004',
+    });
+    // مهم‌تر از خودِ خطا: هیچ نوشتنی رخ نداده باشد.
+    expect(repo.markLoadedWithDelivery).not.toHaveBeenCalled();
+    expect(notifications.emitLoadingRequest).not.toHaveBeenCalled();
+  });
+
+  it('BR-05/BR-25: مقدار تحویل بیشتر از مقدار اعلام‌شده → LOAD_001', async () => {
+    repo.findByIdWithContext.mockResolvedValue(contextRow({ requestedQty: 20 }));
+
+    await expect(
+      service.markLoaded('lr-1', { ...MANUAL, deliveredQty: 21 }),
+    ).rejects.toMatchObject({ code: 'LOAD_001' });
+    expect(repo.markLoadedWithDelivery).not.toHaveBeenCalled();
+  });
+
+  it('برگشت‌پذیری: بدون پارامتر manual (مسیر ERP) رفتار قبلی دست‌نخورده است', async () => {
+    repo.markLoadedWithDelivery.mockResolvedValue(loadedRow(30));
+
+    await service.markLoaded('lr-1');
+
+    const delivery = deliveryArg();
+    // قیمت پایه از سفارش می‌آید و مبالغ محاسبه می‌شوند — نه null.
+    // ⚠️ مقادیر انتظار عمداً عددِ ثابت‌اند، نه حاصل‌ضرب: سرویس با Prisma.Decimal
+    // (اعشاری دقیق) حساب می‌کند و `30_000_000 * 1.09` در حساب شناور جاوااسکریپت
+    // ممکن است 32700000.000000004 شود و تست را بی‌دلیل بشکند.
+    expect((delivery.basePrice as Prisma.Decimal).toNumber()).toBe(1_000_000);
+    expect((delivery.baseAmount as Prisma.Decimal).toNumber()).toBe(30_000_000);
+    expect((delivery.vatAmount as Prisma.Decimal).toNumber()).toBe(2_700_000); // ۹٪
+    expect((delivery.amountWithFactors as Prisma.Decimal).toNumber()).toBe(32_700_000);
+    // مقدار تحویل = کل مقدار اعلام‌شده و شمارهٔ توزین خودکار تولید می‌شود.
+    expect((delivery.deliveredQty as Prisma.Decimal).toNumber()).toBe(30);
+    expect(delivery.weighingNumber).toBe('W-000042');
+    expect(repo.nextWeighingNumber).toHaveBeenCalledTimes(1);
+    // فیلدهای مخصوص فرم ادمین در این مسیر خالی‌اند.
+    expect(delivery.driverMobile).toBeNull();
+  });
+
+  it('درخواست ناموجود → ORDER_001 (پیش از هر تغییر وضعیت)', async () => {
+    repo.findByIdWithContext.mockResolvedValue(null);
+
+    await expect(service.markLoaded('missing', MANUAL)).rejects.toBeInstanceOf(AppException);
+    await expect(service.markLoaded('missing', MANUAL)).rejects.toMatchObject({
+      code: 'ORDER_001',
+    });
+    expect(repo.markLoadedWithDelivery).not.toHaveBeenCalled();
   });
 });

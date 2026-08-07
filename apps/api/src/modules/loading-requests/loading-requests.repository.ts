@@ -1,7 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, LoadingRequestStatus as PrismaLoadingRequestStatus } from '@prisma/client';
-import { LoadingRequestStatus } from '@cement/shared-types';
+import { randomBytes } from 'node:crypto';
+import {
+  Prisma,
+  LoadingRequestStatus as PrismaLoadingRequestStatus,
+  OrderStatus as PrismaOrderStatus,
+} from '@prisma/client';
+import { LoadingRequestStatus, OrderSource } from '@cement/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
+
+/**
+ * کد ERP محصول(های) قابل انتخاب در حالت `FEATURE_PILOT_PRODUCT_SELECTION`.
+ * پیش‌فرض = «سیمان پاکتی تیپ ۲-۴۲۵ داخلی» (محصول دورهٔ پایلوت). با متغیر محیطی
+ * `PILOT_PRODUCT_ERP_CODES` (جدا‌شده با کاما) قابل تغییر است، بدون تغییر کد.
+ */
+const DEFAULT_PILOT_PRODUCT_ERP_CODES = '2001240002';
+
+function pilotProductErpCodes(): string[] {
+  return (process.env.PILOT_PRODUCT_ERP_CODES ?? DEFAULT_PILOT_PRODUCT_ERP_CODES)
+    .split(',')
+    .map((code) => code.trim())
+    .filter((code) => code !== '');
+}
+
+/** مهر `YYMMDD` شماره سفارش نگه‌دارندهٔ پایلوت (هم‌شکل با ثبت دستی ادمین). */
+function pilotOrderStamp(): string {
+  const now = new Date();
+  return (
+    String(now.getFullYear() % 100).padStart(2, '0') +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0')
+  );
+}
 
 export interface LoadingRequestFilter {
   customerId: string;
@@ -56,6 +85,12 @@ const ACTIVE_STATUSES: PrismaLoadingRequestStatus[] = [
   PrismaLoadingRequestStatus.LOADED,
 ];
 
+/** باربری فعال برای فهرست انتخابیِ فرم ثبت دستی تحویل (Task 3 — پایلوت). */
+export interface ActiveCarrierRow {
+  id: string;
+  name: string;
+}
+
 /** داده سفارش لازم برای اعتبارسنجی ثبت درخواست (BR-05/BR-06). */
 export interface OrderForValidation {
   id: string;
@@ -63,6 +98,51 @@ export interface OrderForValidation {
   productId: string;
   totalQty: Prisma.Decimal;
   status: string;
+}
+
+/** پروجکشن مشترک `OrderForValidation` (هم مسیر عادی، هم سفارشِ مرجع پایلوت). */
+const ORDER_FOR_VALIDATION_SELECT = {
+  id: true,
+  customerId: true,
+  productId: true,
+  totalQty: true,
+  status: true,
+} satisfies Prisma.OrderSelect;
+
+/** محصول قابل انتخاب در فرم اعلام بار (حالت پایلوت) — بدون مانده و بدون مبلغ. */
+export interface SelectableProductRow {
+  id: string;
+  name: string;
+}
+
+/**
+ * حداقل ستون‌های لازم برای Dropdown سفارش در فرم اعلام بار.
+ * ⚠️ هیچ ستون مالی‌ای انتخاب نمی‌شود تا خاموش بودن پرچم `ORDERS_ENABLED` دور زده نشود.
+ */
+const SELECTABLE_ORDER_SELECT = {
+  id: true,
+  orderNumber: true,
+  productId: true,
+  remainingQty: true,
+  product: { select: { name: true } },
+} satisfies Prisma.OrderSelect;
+
+/** سفارش فعالِ قابل انتخاب در فرم اعلام بار (بدون هیچ ستون مالی — بخش ۹.۵). */
+export type SelectableOrderRow = Prisma.OrderGetPayload<{
+  select: typeof SELECTABLE_ORDER_SELECT;
+}>;
+
+/**
+ * فیلتر کارتابل ادمین (بدون `customerId` — نقش ADMIN همه مشتریان را می‌بیند).
+ * جدا از `LoadingRequestFilter` نگه داشته شد چون آن یکی `customerId` را الزامی
+ * می‌کند و Scope مشتری نباید تصادفاً از مسیر ادمین حذف‌شدنی شود.
+ */
+export interface AdminCartableFilter {
+  status?: string;
+  from?: Date;
+  to?: Date;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }
 
 /**
@@ -173,26 +253,80 @@ export class LoadingRequestRepository {
    * کارتابل ادمین (بخش ۹.۹.۳): همه درخواست‌های همه مشتریان، فیلتر اختیاری وضعیت.
    * بدون Scope مشتری چون ادمین کل سیستم را می‌بیند. شامل نام مشتری و شماره سفارش.
    */
+  /** `where` کارتابل ادمین — بدون Scope مشتری (نقش ADMIN). */
+  private buildAdminWhere(filter: AdminCartableFilter): Prisma.LoadingRequestWhereInput {
+    const where: Prisma.LoadingRequestWhereInput = {};
+    if (filter.status) {
+      where.status = filter.status as Prisma.LoadingRequestWhereInput['status'];
+    }
+    // بازه روی «تاریخ ثبت» بسته می‌شود، هم‌معنی با فیلتر سمت مشتری (buildWhere).
+    if (filter.from || filter.to) {
+      where.submittedAt = {};
+      if (filter.from) {
+        where.submittedAt.gte = filter.from;
+      }
+      if (filter.to) {
+        where.submittedAt.lte = filter.to;
+      }
+    }
+    return where;
+  }
+
+  /**
+   * `orderBy` کارتابل ادمین. پیش‌فرض `submittedAt: 'desc'` است، یعنی بدون پارامتر
+   * مرتب‌سازی رفتار قبلی کارتابل مو‌به‌مو حفظ می‌شود.
+   */
+  private buildAdminOrderBy(
+    filter: AdminCartableFilter,
+  ): Prisma.LoadingRequestOrderByWithRelationInput {
+    const dir = filter.sortDir ?? 'desc';
+    switch (filter.sortBy) {
+      case 'requestNumber':
+        return { requestNumber: dir };
+      // نام مشتری ستون همین جدول نیست؛ از رابطه مرتب می‌شود تا در DB انجام شود نه در حافظه.
+      case 'customerName':
+        return { customer: { name: dir } };
+      case 'requestedQty':
+        return { requestedQty: dir };
+      case 'requestDate':
+        return { requestDate: dir };
+      case 'status':
+        return { status: dir };
+      default:
+        return { submittedAt: dir };
+    }
+  }
+
   async findAdminPage(
-    status: string | undefined,
+    filter: AdminCartableFilter,
     skip: number,
     take: number,
   ): Promise<{ rows: AdminLoadingRequestWithContext[]; total: number }> {
-    const where: Prisma.LoadingRequestWhereInput = {};
-    if (status) {
-      where.status = status as Prisma.LoadingRequestWhereInput['status'];
-    }
+    const where = this.buildAdminWhere(filter);
     const [rows, total] = await Promise.all([
       this.prisma.loadingRequest.findMany({
         where,
         include: ADMIN_CARTABLE_INCLUDE,
-        orderBy: { submittedAt: 'desc' },
+        orderBy: this.buildAdminOrderBy(filter),
         skip,
         take,
       }),
       this.prisma.loadingRequest.count({ where }),
     ]);
     return { rows, total };
+  }
+
+  /**
+   * همان کارتابل، بدون صفحه‌بندی — برای خروجی Excel.
+   * ⚠️ عمداً همان `where`/`orderBy` صفحه‌بندی‌شده را می‌سازد تا فایل خروجی دقیقاً
+   * همان چیزی باشد که ادمین در جدول فیلتر و مرتب کرده (بخش ۹.۰).
+   */
+  findAdminAll(filter: AdminCartableFilter): Promise<AdminLoadingRequestWithContext[]> {
+    return this.prisma.loadingRequest.findMany({
+      where: this.buildAdminWhere(filter),
+      include: ADMIN_CARTABLE_INCLUDE,
+      orderBy: this.buildAdminOrderBy(filter),
+    });
   }
 
   /**
@@ -219,7 +353,95 @@ export class LoadingRequestRepository {
   ): Promise<OrderForValidation | null> {
     return this.prisma.order.findFirst({
       where: { id: orderId, customerId },
-      select: { id: true, customerId: true, productId: true, totalQty: true, status: true },
+      select: ORDER_FOR_VALIDATION_SELECT,
+    });
+  }
+
+  /**
+   * سفارش‌های قابل انتخاب در فرم اعلام بار: فعال (`IN_USE`) و با مانده > 0 (بخش ۹.۵).
+   * فیلتر عیناً همان چیزی است که Dropdown پیش‌تر از `GET /orders` می‌خواست
+   * (`status=IN_USE&hasRemaining=true`)، تا رفتار انتخاب سفارش تغییر نکند.
+   */
+  findSelectableOrders(customerId: string): Promise<SelectableOrderRow[]> {
+    return this.prisma.order.findMany({
+      where: {
+        customerId,
+        status: PrismaOrderStatus.IN_USE,
+        remainingQty: { gt: 0 },
+      },
+      select: SELECTABLE_ORDER_SELECT,
+      orderBy: { orderDate: 'desc' },
+    });
+  }
+
+  /**
+   * محصولات قابل انتخاب در فرم اعلام بار وقتی `FEATURE_PILOT_PRODUCT_SELECTION` روشن است.
+   *
+   * فهرست با `erpCode` محدود می‌شود (نه با نام): `erpCode` کلید یکتا و پایدار است،
+   * در حالی که نام محصول بین ارقام فارسی/لاتین («۲-۴۲۵» و «2-425») تفاوت دارد و
+   * تطبیق متنی شکننده می‌شود. کدها از `PILOT_PRODUCT_ERP_CODES` خوانده می‌شوند تا
+   * انتخاب محصول پایلوت یک تنظیم باشد، نه مقدار ثابتِ درون کد Frontend.
+   */
+  findPilotSelectableProducts(): Promise<SelectableProductRow[]> {
+    return this.prisma.product.findMany({
+      where: {
+        erpCode: { in: pilotProductErpCodes() },
+        isActive: true,
+        isDeleted: false,
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * سفارشِ مرجع برای ثبت اعلام بار در حالت انتخاب محصول (پایلوت).
+   *
+   * `LoadingRequest.orderId` کلید خارجی و NOT NULL است، پس درخواست باید به یک سفارش
+   * بچسبد. ترتیب: (۱) اگر مشتری سفارش فعالی روی همین محصول دارد همان استفاده می‌شود
+   * تا سفارش دستیِ ادمین مرجع بماند و مانده‌اش درست کم شود؛ (۲) وگرنه یک سفارش
+   * نگه‌دارندهٔ `MANUAL` با مقدار صفر ساخته می‌شود تا مشتریِ تازه‌تعریف‌شده بدون
+   * موجودی هم بتواند ثبت کند. مبالغ صفر می‌مانند (ستون‌ها NOT NULL هستند و قیمت
+   * فقط از ERP می‌آید — BR-18). پیشوند `MO-` آن را برای بایگانی پس از پایلوت
+   * قابل‌تشخیص نگه می‌دارد (PILOT_MODE.md).
+   *
+   * ⚠️ دو ثبت هم‌زمانِ اولین درخواست ممکن است دو سفارش نگه‌دارنده بسازند؛ چون
+   * `orderNumber` تصادفی است به قید یکتایی نمی‌خورد و فقط یک ردیف اضافه می‌ماند.
+   */
+  async findOrCreatePilotOrder(
+    customerId: string,
+    productId: string,
+  ): Promise<OrderForValidation> {
+    const existing = await this.prisma.order.findFirst({
+      where: { customerId, productId, status: PrismaOrderStatus.IN_USE },
+      select: ORDER_FOR_VALIDATION_SELECT,
+      orderBy: { orderDate: 'desc' },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const zero = new Prisma.Decimal(0);
+    return this.prisma.order.create({
+      data: {
+        customerId,
+        productId,
+        orderNumber: `MO-${pilotOrderStamp()}-${randomBytes(3).toString('hex').toUpperCase()}`,
+        orderDate: new Date(),
+        totalQty: zero,
+        deliveredQty: zero,
+        remainingQty: zero,
+        basePrice: zero,
+        baseAmount: zero,
+        deliveredAmount: zero,
+        vatAmount: zero,
+        priceWithFactors: zero,
+        amountWithFactors: zero,
+        remainingAmount: zero,
+        status: PrismaOrderStatus.IN_USE,
+        source: OrderSource.MANUAL,
+      },
+      select: ORDER_FOR_VALIDATION_SELECT,
     });
   }
 
@@ -256,6 +478,19 @@ export class LoadingRequestRepository {
     });
     const lastNum = last ? Number(last.weighingNumber.replace(/\D/g, '')) : 0;
     return `W-${String(lastNum + 1).padStart(6, '0')}`;
+  }
+
+  /**
+   * باربری‌های فعال برای انتخاب در فرم ثبت دستی تحویل (Task 3 — پایلوت).
+   * `Delivery.carrierId` کلید خارجی است، پس فرم باید از فهرست معتبر انتخاب کند
+   * نه متن آزاد.
+   */
+  findActiveCarriers(): Promise<ActiveCarrierRow[]> {
+    return this.prisma.carrier.findMany({
+      where: { isActive: true, isDeleted: false },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
   /** نام مشتری برای متن اعلان (بخش ۱۷). */

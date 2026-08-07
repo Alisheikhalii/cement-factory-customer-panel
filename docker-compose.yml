@@ -57,6 +57,16 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars_long}
       CORS_ORIGIN: http://localhost:3000
       API_PORT: 3001
+      # --- Feature Flags (حالت پایلوت — PILOT_MODE.md) ---
+      # ⚠️ لازم است: کانتینر فایل `apps/api/.env` را نمی‌بیند (در .gitignore است و
+      # به Image کپی نمی‌شود). بدون این چهار خط، کد به FEATURE_FLAG_DEFAULTS
+      # برمی‌گردد که عمداً «حالت پس از پایلوت» است و کل پایلوت خاموش می‌شود.
+      # پیش‌فرض زیر = مقادیر پایلوت. برای خروج از پایلوت مقدار را در `.env` ریشه
+      # ست کنید (طبق چک‌لیست بخش ۵ PILOT_MODE.md) و کانتینر را ری‌استارت کنید.
+      FEATURE_FINANCE_ENABLED: ${FEATURE_FINANCE_ENABLED:-false}
+      FEATURE_ORDERS_ENABLED: ${FEATURE_ORDERS_ENABLED:-false}
+      FEATURE_MANUAL_ORDER_ENTRY: ${FEATURE_MANUAL_ORDER_ENTRY:-true}
+      FEATURE_MANUAL_DELIVERY_ENTRY: ${FEATURE_MANUAL_DELIVERY_ENTRY:-true}
     ports:
       - '3001:3001'
 

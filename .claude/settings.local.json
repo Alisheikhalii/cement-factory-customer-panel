@@ -4,7 +4,9 @@
       "Bash(pnpm --filter @cement/api test)",
       "Bash(pnpm --filter @cement/api build)",
       "Bash(pnpm --filter @cement/api exec tsc --noEmit -p tsconfig.json)",
-      "Bash(pnpm --filter @cement/web build)"
+      "Bash(pnpm --filter @cement/web build)",
+      "Bash(pnpm --filter @cement/api test:e2e)",
+      "PowerShell(Push-Location *)"
     ]
   }
 }

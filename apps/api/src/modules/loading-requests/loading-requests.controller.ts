@@ -15,6 +15,8 @@ import type {
   AuthUser,
   LoadingRequestDto,
   LoadingRequestListData,
+  SelectableOrderDto,
+  SelectableProductDto,
 } from '@cement/shared-types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomerScopeGuard } from '../auth/guards/customer-scope.guard';
@@ -65,6 +67,29 @@ export class LoadingRequestsController {
     @Param('id') id: string,
   ): Promise<LoadingRequestDto> {
     return this.service.cancel(requireCustomerId(user), id);
+  }
+
+  /**
+   * سفارش‌های قابل انتخاب برای Dropdown فرم اعلام بار (بخش ۹.۵).
+   * ⚠️ باید پیش از `@Get(':id')` اعلام شود، وگرنه مسیر پارامتری آن را می‌بلعد.
+   */
+  @Get('selectable-orders')
+  @ApiOperation({ summary: 'سفارش‌های فعال دارای مانده برای فرم اعلام بار' })
+  selectableOrders(@CurrentUser() user: AuthUser): Promise<SelectableOrderDto[]> {
+    return this.service.selectableOrders(requireCustomerId(user));
+  }
+
+  /**
+   * محصولات قابل انتخاب در فرم اعلام بار (حالت `FEATURE_PILOT_PRODUCT_SELECTION`).
+   * ⚠️ مثل مسیر بالا باید پیش از `@Get(':id')` بماند.
+   */
+  @Get('selectable-products')
+  @ApiOperation({ summary: 'محصولات قابل انتخاب برای فرم اعلام بار (حالت پایلوت)' })
+  selectableProducts(@CurrentUser() user: AuthUser): Promise<SelectableProductDto[]> {
+    // Scope مشتری هرچند در Query لازم نیست، همین‌جا اعتبارسنجی می‌شود تا این مسیر هم
+    // مثل بقیهٔ کنترلر فقط با توکن مشتریِ معتبر پاسخ بدهد (بخش ۶.۲).
+    requireCustomerId(user);
+    return this.service.pilotSelectableProducts();
   }
 
   @Get('export/excel')

@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react';
  * کارت KPI شیشه‌ای مطابق مرجع animated_dashboard_hormozgan_cement:
  * هاله‌ی نور گوشه + مربع آیکون رنگی + عدد بزرگ + زیرنویس/روند (بخش ۱۰.۷).
  */
+type KpiAccent = 'blue' | 'green' | 'amber' | 'red' | 'slate' | 'primary';
+
 export function KpiCard({
   title,
   value,
@@ -15,9 +17,11 @@ export function KpiCard({
   value: React.ReactNode;
   subtitle?: React.ReactNode;
   icon: LucideIcon;
-  accent?: 'blue' | 'green' | 'amber' | 'red' | 'slate' | 'primary';
+  accent?: KpiAccent;
 }): React.ReactElement {
-  const accentMap: Record<string, { icon: string; glow: string }> = {
+  // کلید نگاشت دقیقاً همان اتحادِ KpiAccent است (نه string)، پس اندیس‌گذاری تحت
+  // noUncheckedIndexedAccess تعریف‌شده است و به fallback نیازی نیست.
+  const accentMap: Record<KpiAccent, { icon: string; glow: string }> = {
     blue: { icon: 'bg-info/10 text-info', glow: 'bg-info/20' },
     green: { icon: 'bg-success/10 text-success', glow: 'bg-success/20' },
     amber: { icon: 'bg-warning/10 text-warning', glow: 'bg-warning/20' },
@@ -25,7 +29,7 @@ export function KpiCard({
     slate: { icon: 'bg-neutral/10 text-neutral', glow: 'bg-neutral/20' },
     primary: { icon: 'bg-primary-container/10 text-primary-container', glow: 'bg-primary-container/20' },
   };
-  const a = accentMap[accent] ?? accentMap.blue;
+  const a = accentMap[accent];
   return (
     <div className="glass-card glass-card-hover relative overflow-hidden rounded-2xl p-5">
       {/* هاله نور گوشه */}

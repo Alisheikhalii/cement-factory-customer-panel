@@ -11,7 +11,7 @@ import type {
 import { apiClient } from '../../lib/api';
 import { useApiData } from '../../lib/use-api-data';
 import { useRequireCustomer } from '../../lib/use-require-customer';
-import { formatJalaliDate, formatNumber } from '../../lib/format';
+import { formatJalaliDate, formatNumber, formatText } from '../../lib/format';
 import { PortalShell } from '../../components/shared/PortalShell';
 import { DataStateView } from '../../components/shared/DataStateView';
 import { SmartTable, type SmartColumn } from '../../components/shared/SmartTable';
@@ -65,37 +65,41 @@ export default function DeliveriesPage(): React.ReactElement {
       render: (d) => d.loadingRequestNumber ?? '—',
     },
     { key: 'deliveryDate', header: 'تاریخ', render: (d) => formatJalaliDate(d.deliveryDate) },
-    { key: 'carrierName', header: 'باربری', render: (d) => d.carrierName ?? '—' },
-    { key: 'vehicleNumber', header: 'شماره ماشین', render: (d) => d.vehicleNumber ?? '—' },
-    { key: 'driverName', header: 'راننده', render: (d) => d.driverName ?? '—' },
+    { key: 'carrierName', header: 'باربری', render: (d) => formatText(d.carrierName) },
+    { key: 'vehicleNumber', header: 'شماره ماشین', render: (d) => formatText(d.vehicleNumber) },
+    { key: 'driverName', header: 'راننده', render: (d) => formatText(d.driverName) },
+    // موبایل راننده: بعد از «راننده» و قبل از «محصول» (Task 4).
+    { key: 'driverMobile', header: 'موبایل راننده', render: (d) => formatText(d.driverMobile) },
     { key: 'productName', header: 'محصول' },
     {
       key: 'deliveredQty',
       header: 'تحویل',
       numeric: true,
       render: (d) => formatNumber(d.deliveredQty),
-      sumRender: () => formatNumber(sum?.deliveredQty ?? 0),
+      sumRender: () => formatNumber(sum?.deliveredQty),
     },
+    // ستون‌های مالی حذف نمی‌شوند؛ فقط برای مقدار null «—» نشان می‌دهند. بدون `?? 0`
+    // تا جمعِ null (کل دورهٔ پایلوت) هم «—» شود، نه صفر.
     {
       key: 'baseAmount',
       header: 'مبلغ پایه',
       numeric: true,
       render: (d) => formatNumber(d.baseAmount),
-      sumRender: () => formatNumber(sum?.baseAmount ?? 0),
+      sumRender: () => formatNumber(sum?.baseAmount),
     },
     {
       key: 'vatAmount',
       header: 'ارزش‌افزوده',
       numeric: true,
       render: (d) => formatNumber(d.vatAmount),
-      sumRender: () => formatNumber(sum?.vatAmount ?? 0),
+      sumRender: () => formatNumber(sum?.vatAmount),
     },
     {
       key: 'amountWithFactors',
       header: 'مبلغ با عوامل',
       numeric: true,
       render: (d) => formatNumber(d.amountWithFactors),
-      sumRender: () => formatNumber(sum?.amountWithFactors ?? 0),
+      sumRender: () => formatNumber(sum?.amountWithFactors),
     },
     { key: 'status', header: 'وضعیت', render: (d) => <StatusBadge status={d.status} /> },
   ];
@@ -107,28 +111,28 @@ export default function DeliveriesPage(): React.ReactElement {
       header: 'تحویل',
       numeric: true,
       render: (g) => formatNumber(g.deliveredQty),
-      sumRender: () => formatNumber(sum?.deliveredQty ?? 0),
+      sumRender: () => formatNumber(sum?.deliveredQty),
     },
     {
       key: 'baseAmount',
       header: 'مبلغ پایه',
       numeric: true,
       render: (g) => formatNumber(g.baseAmount),
-      sumRender: () => formatNumber(sum?.baseAmount ?? 0),
+      sumRender: () => formatNumber(sum?.baseAmount),
     },
     {
       key: 'vatAmount',
       header: 'ارزش‌افزوده',
       numeric: true,
       render: (g) => formatNumber(g.vatAmount),
-      sumRender: () => formatNumber(sum?.vatAmount ?? 0),
+      sumRender: () => formatNumber(sum?.vatAmount),
     },
     {
       key: 'amountWithFactors',
       header: 'مبلغ با عوامل',
       numeric: true,
       render: (g) => formatNumber(g.amountWithFactors),
-      sumRender: () => formatNumber(sum?.amountWithFactors ?? 0),
+      sumRender: () => formatNumber(sum?.amountWithFactors),
     },
   ];
 

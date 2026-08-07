@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { AdminLoadingRequestDetail } from '@cement/shared-types';
-import { LoadingRequestStatus } from '@cement/shared-types';
+import { FEATURE_FLAGS, LoadingRequestStatus } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../../lib/api';
 import { useApiData } from '../../../lib/use-api-data';
+import { useFeatureFlag } from '../../../lib/feature-flags';
 import { formatJalaliDate, formatNumber } from '../../../lib/format';
 import { StatusBadge } from '../../../components/shared/StatusBadge';
+import { RegisterDeliveryForm } from './RegisterDeliveryForm';
 
 /**
  * Drawer جزئیات کامل درخواست اعلام بار (بخش ۹.۹.۳). شامل مانده موجودی (BR-25)
@@ -33,6 +35,9 @@ export function LoadingRequestDrawer({
   const [error, setError] = useState<string | null>(null);
 
   const isPending = data?.status === LoadingRequestStatus.SUBMITTED;
+  // ثبت دستی تحویل فقط برای درخواست تاییدشده و فقط در فاز پایلوت (Task 3).
+  const manualDeliveryEnabled = useFeatureFlag(FEATURE_FLAGS.MANUAL_DELIVERY_ENTRY);
+  const isApproved = data?.status === LoadingRequestStatus.APPROVED;
 
   async function approve(): Promise<void> {
     setError(null);
@@ -188,6 +193,10 @@ export function LoadingRequestDrawer({
                     </button>
                   </div>
                 </div>
+              )}
+
+              {isApproved && manualDeliveryEnabled && (
+                <RegisterDeliveryForm request={data} onRegistered={onReviewed} />
               )}
             </>
           )}

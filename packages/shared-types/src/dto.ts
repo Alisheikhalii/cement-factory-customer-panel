@@ -74,6 +74,33 @@ export type OrderListData = ListResult<OrderDto, OrderSumRow>;
 
 // ==================== LOADING REQUESTS (۱۱.۵ / ۹.۵ — نمای Read در فاز ۲) ====================
 
+/**
+ * سفارش قابل انتخاب در Dropdown فرم اعلام بار (بخش ۹.۵).
+ *
+ * ⚠️ عمداً هیچ ستون مالی ندارد: در دورهٔ پایلوت پرچم `ORDERS_ENABLED` خاموش است تا
+ * مشتری بخش سفارشات (با مبالغ) را نبیند؛ فرم اعلام بار فقط به شناسه/شماره/محصول و
+ * مانده نیاز دارد، پس همان حداقل برگردانده می‌شود و قصد آن پرچم نقض نمی‌شود (BR-18).
+ */
+export interface SelectableOrderDto {
+  id: string;
+  orderNumber: string;
+  productId: string;
+  productName: string;
+  remainingQty: number;
+}
+
+/**
+ * محصول قابل انتخاب در فرم اعلام بار وقتی `FEATURE_PILOT_PRODUCT_SELECTION` روشن است.
+ *
+ * در این حالت مشتری «سفارش» انتخاب نمی‌کند (چون تا اتصال ERP ممکن است هیچ سفارشی
+ * نداشته باشد)؛ فقط محصول را انتخاب می‌کند و سفارشِ مرجع سمت Backend حل می‌شود.
+ * ⚠️ عمداً هیچ فیلد مالی و هیچ «مانده»‌ای ندارد.
+ */
+export interface SelectableProductDto {
+  id: string;
+  name: string;
+}
+
 export interface LoadingRequestDto {
   id: string;
   requestNumber: string;
@@ -106,7 +133,13 @@ export type LoadingRequestListData = ListResult<LoadingRequestDto, LoadingReques
  * تاریخ درخواستی هم سمت Backend اجبار می‌شود که «فردا» باشد (BR-04)، نه از ورودی.
  */
 export interface CreateLoadingRequestInput {
-  orderId: string;
+  /**
+   * سفارش انتخابی. در حالت عادی (PRD) اجباری است.
+   * ⚠️ وقتی `FEATURE_PILOT_PRODUCT_SELECTION` روشن باشد مشتری سفارش انتخاب نمی‌کند و
+   * این فیلد ارسال نمی‌شود؛ Backend سفارشِ مرجع را از `productId` حل می‌کند. با خاموش
+   * بودن پرچم، نبودِ این فیلد خطای ORDER_001 می‌دهد، پس رفتار قبلی حفظ می‌شود.
+   */
+  orderId?: string;
   productId: string;
   requestedQty: number;
   vehicleType: VehicleType;
@@ -137,34 +170,47 @@ export interface DeliveryDto {
   carrierName: string | null;
   vehicleNumber: string | null;
   driverName: string | null;
+  /** موبایل راننده — اختیاری چون ERP ممکن است ارسال نکند. */
+  driverMobile: string | null;
   productId: string;
   productName: string;
   deliveredQty: number;
-  basePrice: number;
-  baseAmount: number;
-  vatAmount: number;
+  /**
+   * فیلدهای مالی Nullable هستند: در تحویل ثبت‌دستی این مقادیر در دسترس نیست و
+   * `null` می‌ماند (نه صفر). Frontend برای `null` باید «—» نشان دهد، نه عدد.
+   */
+  basePrice: number | null;
+  baseAmount: number | null;
+  vatAmount: number | null;
   deductions: number;
-  amountWithFactors: number;
+  amountWithFactors: number | null;
   status: DeliveryStatus;
 }
 
-/** ردیف نمای «سرجمع محصول» یا «سرجمع تاریخ». */
+/**
+ * ردیف نمای «سرجمع محصول» یا «سرجمع تاریخ».
+ * ستون‌های مالی وقتی هیچ رکورد دارای مقدار نباشد `null` می‌مانند (نه صفر).
+ */
 export interface DeliveryGroupRow {
   groupKey: string;
   groupLabel: string;
   deliveredQty: number;
-  baseAmount: number;
-  vatAmount: number;
+  baseAmount: number | null;
+  vatAmount: number | null;
   deductions: number;
-  amountWithFactors: number;
+  amountWithFactors: number | null;
 }
 
+/**
+ * ردیف جمع کل. جمع فقط روی مقادیر غیر-null محاسبه می‌شود؛ اگر همه رکوردهای بازه
+ * `null` باشند (کل دورهٔ پایلوت) خودِ جمع هم `null` است تا Frontend «—» نشان دهد.
+ */
 export interface DeliverySumRow {
   deliveredQty: number;
-  baseAmount: number;
-  vatAmount: number;
+  baseAmount: number | null;
+  vatAmount: number | null;
   deductions: number;
-  amountWithFactors: number;
+  amountWithFactors: number | null;
 }
 
 export type DeliveryListData = ListResult<DeliveryDto, DeliverySumRow>;

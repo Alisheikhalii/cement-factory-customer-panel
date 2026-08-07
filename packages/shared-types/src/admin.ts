@@ -81,8 +81,10 @@ export interface UpdateCustomerInput {
 }
 
 /**
- * پاسخ ایجاد مشتری: مشتری ساخته‌شده + رمز موقت تولیدشده (BR-26).
- * رمز موقت فقط همین‌جا یک‌بار برگردانده می‌شود تا ادمین به مشتری اطلاع دهد.
+ * پاسخ ایجاد مشتری: مشتری ساخته‌شده + رمز اولیه (BR-26/BR-28).
+ * رمز اولیه برابر کد ملی مشتری است و همین‌جا یک‌بار برگردانده می‌شود تا ادمین اطلاع دهد.
+ * نام فیلد `temporaryPassword` حفظ شده چون «موقت» بودنش سر جای خود است: مشتری
+ * در اولین ورود مجبور به تغییر آن است.
  */
 export interface CreateCustomerResult {
   customer: AdminCustomerDto;
@@ -92,6 +94,11 @@ export interface CreateCustomerResult {
 /** پاسخ بازنشانی رمز مشتری (رمز موقت جدید). */
 export interface ResetCustomerPasswordResult {
   temporaryPassword: string;
+}
+
+/** پاسخ حذف نرم مشتری (بخش ۵.۲) — رکورد فیزیکی حذف نمی‌شود. */
+export interface DeleteCustomerResult {
+  deleted: true;
 }
 
 // ==================== ADMIN LOADING REQUESTS (۹.۹.۳ / ۱۱.۱۰) ====================
@@ -107,6 +114,16 @@ export interface AdminLoadingRequestRow {
   requestDate: string;
   status: LoadingRequestStatus;
   submittedAt: string;
+  /**
+   * مقصد و تحویل‌گیرنده — همان فیلدهایی که مشتری در فرم اعلام بار پر می‌کند.
+   * در کارتابل ادمین و خروجی Excel نمایش داده می‌شوند تا ادمین برای هماهنگی
+   * بارگیری نیازی به باز کردن Drawer هر ردیف نداشته باشد.
+   * `null` = مشتری پر نکرده (اختیاری‌اند)؛ در جدول «—» نمایش می‌یابد.
+   */
+  destinationCity: string;
+  additionalAddress: string | null;
+  destinationPostalCode: string | null;
+  recipientMobile: string;
 }
 
 /** جزئیات کامل درخواست برای Drawer ادمین (۹.۹.۳ + BR-25). */
@@ -192,4 +209,34 @@ export interface SurveyResultsDto {
   status: SurveyStatus;
   totalRespondents: number;
   questions: SurveyResultQuestion[];
+}
+
+// ==================== ADMIN MANUAL ORDERS (پایلوت یک‌هفته‌ای) ====================
+
+/**
+ * بدنه ثبت دستی سفارش توسط ادمین (Task 2 — فاز پایلوت).
+ * پشت FEATURE_MANUAL_ORDER_ENTRY=true.
+ */
+export interface CreateManualOrderInput {
+  customerId: string;
+  productId: string;
+  /** مقدار اولیه سفارش به تن. */
+  totalQty: number;
+}
+
+/** بدنه ویرایش مقدار سفارش دستی (مثلاً مشتری مقدار خرید را اصلاح کرد). */
+export interface UpdateManualOrderQtyInput {
+  /** مقدار جدید (باید >= تحویل‌شده تا الان). */
+  newTotalQty: number;
+}
+
+/** ردیف سفارش دستی برای لیست ادمین (فیلدهای مرتبط با ثبت دستی). */
+export interface AdminManualOrderRow {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  productName: string;
+  totalQty: number;
+  remainingQty: number;
+  createdAt: string;
 }

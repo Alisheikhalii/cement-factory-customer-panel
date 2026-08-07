@@ -7,6 +7,7 @@ import { AdminAuthController } from '../admin/admin-auth.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { MustResetPasswordGuard } from './guards/must-reset-password.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginThrottleService } from './services/login-throttle.service';
 import { OtpService } from './services/otp.service';
@@ -28,6 +29,9 @@ import { PasswordService } from './services/password.service';
     LoginThrottleService,
     OtpService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // ترتیب مهم است: بعد از JwtAuthGuard ثبت می‌شود تا `request.user` موجود باشد
+    // (اجبار به تغییر رمز اولیه — BR-26، لایهٔ Backend).
+    { provide: APP_GUARD, useClass: MustResetPasswordGuard },
   ],
   exports: [AuthService, PasswordService],
 })

@@ -1,26 +1,31 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { KeyRound, Pencil, Plus, Power, Users } from 'lucide-react';
+import { KeyRound, Package, Pencil, Plus, Power, Trash2, Users } from 'lucide-react';
 import type {
   AdminCustomerDto,
   CreateCustomerInput,
   CreateCustomerResult,
+  DeleteCustomerResult,
   ResetCustomerPasswordResult,
   UpdateCustomerInput,
 } from '@cement/shared-types';
+import { FEATURE_FLAGS } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../../lib/api';
 import { useApiData } from '../../../lib/use-api-data';
 import { useRequireAdmin } from '../../../lib/use-require-admin';
-import { formatCurrency, formatJalaliDate } from '../../../lib/format';
+import { useFeatureFlag } from '../../../lib/feature-flags';
+import { formatJalaliDate } from '../../../lib/format';
 import { AdminShell } from '../../../components/shared/AdminShell';
 import { DataStateView } from '../../../components/shared/DataStateView';
 import { SmartTable, type SmartColumn } from '../../../components/shared/SmartTable';
 import { CustomerFormModal } from './CustomerFormModal';
+import { ManualOrderModal } from './ManualOrderModal';
 import { TempPasswordModal } from './TempPasswordModal';
 
 export default function AdminCustomersPage(): React.ReactElement {
   const user = useRequireAdmin();
+  const manualOrdersEnabled = useFeatureFlag(FEATURE_FLAGS.MANUAL_ORDER_ENTRY);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -28,6 +33,7 @@ export default function AdminCustomersPage(): React.ReactElement {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AdminCustomerDto | null>(null);
+  const [manualOrderFor, setManualOrderFor] = useState<AdminCustomerDto | null>(null);
   const [tempPassword, setTempPassword] = useState<{ name: string; password: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -87,6 +93,29 @@ export default function AdminCustomersPage(): React.ReactElement {
     }
   }
 
+  async function handleDelete(customer: AdminCustomerDto): Promise<void> {
+    // حذف نرم است، اما برای ادمین بازگشت‌پذیر نیست؛ پس تأیید صریح با نام مشتری.
+    if (
+      !window.confirm(
+        `مشتری «${customer.name}» حذف شود؟\n\n` +
+          'حساب کاربری او غیرفعال می‌شود و دیگر نمی‌تواند وارد شود. ' +
+          'سابقهٔ سفارش‌ها و تحویل‌های او حفظ می‌شود.',
+      )
+    ) {
+      return;
+    }
+    setActionError(null);
+    setBusyId(customer.id);
+    try {
+      await apiClient.del<DeleteCustomerResult>(`/admin/customers/${customer.id}`);
+      reload();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'حذف مشتری ناموفق بود');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleReset(customer: AdminCustomerDto): Promise<void> {
     if (!window.confirm(`رمز عبور مشتری «${customer.name}» بازنشانی شود؟`)) {
       return;
@@ -108,13 +137,8 @@ export default function AdminCustomersPage(): React.ReactElement {
   const columns: SmartColumn<AdminCustomerDto>[] = [
     { key: 'name', header: 'نام مشتری' },
     { key: 'customerCode', header: 'کد تفصیل' },
+    { key: 'nationalId', header: 'کد ملی', render: (r) => r.nationalId ?? '—' },
     { key: 'mobile', header: 'موبایل' },
-    {
-      key: 'creditLimit',
-      header: 'سقف اعتباری',
-      numeric: true,
-      render: (r) => formatCurrency(r.creditLimit),
-    },
     {
       key: 'isActive',
       header: 'وضعیت',
@@ -156,6 +180,25 @@ export default function AdminCustomersPage(): React.ReactElement {
             title="بازنشانی رمز"
           >
             <KeyRound className="h-3.5 w-3.5" />
+          </button>
+          {/* ثبت سفارش دستی — فقط در فاز پایلوت (FEATURE_MANUAL_ORDER_ENTRY). */}
+          {manualOrdersEnabled && (
+            <button
+              onClick={() => setManualOrderFor(r)}
+              disabled={busyId === r.id}
+              className="rounded border border-emerald-200 p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+              title="ثبت سفارش دستی (پایلوت)"
+            >
+              <Package className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            onClick={() => handleDelete(r)}
+            disabled={busyId === r.id}
+            className="rounded border border-danger/25 p-1.5 text-danger hover:bg-danger/10 disabled:opacity-50"
+            title="حذف مشتری"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       ),
@@ -232,6 +275,13 @@ export default function AdminCustomersPage(): React.ReactElement {
           customer={editing}
           onClose={() => setFormOpen(false)}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {manualOrderFor && (
+        <ManualOrderModal
+          customer={manualOrderFor}
+          onClose={() => setManualOrderFor(null)}
         />
       )}
 

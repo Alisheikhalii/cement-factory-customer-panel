@@ -3,14 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, ClipboardList, Loader2, X } from 'lucide-react';
 import {
+  FEATURE_FLAGS,
   LoadType,
   VehicleType,
   type CreateLoadingRequestInput,
   type DashboardSummaryDto,
   type OrderDto,
-  type OrderListData,
+  type SelectableOrderDto,
+  type SelectableProductDto,
 } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../lib/api';
+import { useFeatureFlag } from '../../lib/feature-flags';
 import { formatJalaliDate, formatNumber } from '../../lib/format';
 
 const VEHICLE_LABELS: Record<VehicleType, string> = {
@@ -48,6 +51,55 @@ function tomorrowTehranIso(): string {
   return tehranNow.toISOString();
 }
 
+/** سفارشِ از پیش انتخاب‌شده (کشوی سفارش) را به همان شکل ردیف‌های Dropdown درمی‌آورد. */
+function toSelectable(order: OrderDto): SelectableOrderDto {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    productId: order.productId,
+    productName: order.productName,
+    remainingQty: order.remainingQty,
+  };
+}
+
+/**
+ * یک گزینهٔ Dropdown «سفارش (برگ فروش)».
+ *
+ * دو منبع دارد و شکل واحد آن‌ها را یکی می‌کند تا بقیهٔ فرم شرطی نشود:
+ * - حالت عادی (PRD): از سفارش‌های دارای مانده؛ `orderId` دارد و مانده نمایش می‌یابد.
+ * - حالت `FEATURE_PILOT_PRODUCT_SELECTION`: از محصولات؛ `orderId` ندارد و
+ *   `remainingQty = null` است، یعنی «مانده‌ای نمایش/اعمال نمی‌شود».
+ */
+interface OrderChoice {
+  value: string;
+  label: string;
+  productId: string;
+  productName: string;
+  orderId?: string;
+  remainingQty: number | null;
+}
+
+function orderToChoice(row: SelectableOrderDto): OrderChoice {
+  return {
+    value: row.id,
+    label: `${row.orderNumber} — ${row.productName} (مانده: ${formatNumber(row.remainingQty)})`,
+    productId: row.productId,
+    productName: row.productName,
+    orderId: row.id,
+    remainingQty: row.remainingQty,
+  };
+}
+
+function productToChoice(row: SelectableProductDto): OrderChoice {
+  return {
+    value: row.id,
+    label: row.name,
+    productId: row.id,
+    productName: row.name,
+    remainingQty: null,
+  };
+}
+
 /**
  * فرم/مودال ثبت درخواست اعلام بار جدید (بخش ۹.۵ / ۷.۲ — BR-04..BR-09, BR-24).
  *
@@ -72,8 +124,15 @@ export function NewLoadingRequestForm({
   onClose: () => void;
   onSuccess: () => void;
 }): React.ReactElement {
-  const [orders, setOrders] = useState<OrderDto[]>(order ? [order] : []);
+  const [orders, setOrders] = useState<OrderChoice[]>(
+    order ? [orderToChoice(toSelectable(order))] : [],
+  );
   const [ordersLoading, setOrdersLoading] = useState(!order);
+  /**
+   * خطای دریافت فهرست سفارش‌ها، جدا از `error` فرم نگه داشته می‌شود تا پیام
+   * «سفارش فعالی ندارید» به‌اشتباه روی یک درخواست ناموفق نمایش داده نشود.
+   */
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string>(order?.id ?? '');
   const [requestedQty, setRequestedQty] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType>(VehicleType.TRAILER);
@@ -85,28 +144,57 @@ export function NewLoadingRequestForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const afterCutoff = isAfterCutoffTehran();
+  // در دورهٔ پایلوت پرچم مهلت خاموش است تا تست در هر ساعتی ممکن باشد؛ آن‌وقت نه
+  // هشدار نمایش داده می‌شود و نه فرم قفل می‌شود. Backend همان پرچم را می‌خواند.
+  const cutoffEnforced = useFeatureFlag(FEATURE_FLAGS.REQUEST_CUTOFF_ENFORCED);
+  const afterCutoff = cutoffEnforced && isAfterCutoffTehran();
+  // در دورهٔ پایلوت مشتری به‌جای «سفارش دارای مانده»، مستقیماً محصول را انتخاب می‌کند
+  // (تا اتصال ERP ممکن است هیچ سفارشی نداشته باشد). Backend همین پرچم را می‌خواند و
+  // خودش سفارشِ مرجع را حل می‌کند، پس اینجا هیچ محصولی Hard-code نمی‌شود.
+  const productSelection = useFeatureFlag(FEATURE_FLAGS.PILOT_PRODUCT_SELECTION);
   const tomorrowLabel = useMemo(() => formatJalaliDate(tomorrowTehranIso()), []);
 
-  const selectedOrder = orders.find((o) => o.id === selectedOrderId) ?? null;
+  const selectedOrder = orders.find((o) => o.value === selectedOrderId) ?? null;
   const qtyNumber = Number(requestedQty);
+  // `remainingQty === null` یعنی حالت انتخاب محصول: مانده‌ای برای مقایسه وجود ندارد.
   const qtyTooHigh =
     selectedOrder !== null &&
+    selectedOrder.remainingQty !== null &&
     Number.isFinite(qtyNumber) &&
     qtyNumber > selectedOrder.remainingQty;
 
   // ۹.۵: فقط سفارش‌های «در حال استفاده» با مانده > 0 قابل انتخاب‌اند.
+  // ⚠️ از مسیر خودِ اعلام بار خوانده می‌شود، نه `GET /orders`: در دورهٔ پایلوت پرچم
+  // `ORDERS_ENABLED` خاموش است و آن مسیر ۴۰۳/FEATURE_DISABLED می‌دهد، پس Dropdown
+  // همیشه خالی می‌ماند حتی وقتی ادمین سفارش دستی ثبت کرده است.
+  // در حالت `PILOT_PRODUCT_SELECTION` همین Dropdown از فهرست محصولات پر می‌شود.
   useEffect(() => {
     if (order) return;
     let active = true;
-    apiClient
-      .getWithMeta<OrderListData>('/orders?hasRemaining=true&status=IN_USE&page=1&pageSize=100')
-      .then((res) => {
+    const request = productSelection
+      ? apiClient
+          .get<SelectableProductDto[]>('/loading-requests/selectable-products')
+          .then((rows) => rows.map(productToChoice))
+      : apiClient
+          .get<SelectableOrderDto[]>('/loading-requests/selectable-orders')
+          .then((rows) => rows.map(orderToChoice));
+
+    setOrdersLoading(true);
+    request
+      .then((rows) => {
         if (!active) return;
-        setOrders(res.data.rows.filter((o) => o.remainingQty > 0));
+        setOrders(rows);
+        setOrdersError(null);
       })
-      .catch(() => {
-        if (active) setError('دریافت فهرست سفارش‌های دارای مانده ناموفق بود');
+      .catch((err: unknown) => {
+        if (!active) return;
+        setOrdersError(
+          err instanceof ApiError
+            ? err.message
+            : productSelection
+              ? 'دریافت فهرست محصولات ناموفق بود'
+              : 'دریافت فهرست سفارش‌های دارای مانده ناموفق بود',
+        );
       })
       .finally(() => {
         if (active) setOrdersLoading(false);
@@ -114,7 +202,7 @@ export function NewLoadingRequestForm({
     return () => {
       active = false;
     };
-  }, [order]);
+  }, [order, productSelection]);
 
   // BR-24: Pre-fill موبایل تحویل‌گیرنده با موبایل حساب مشتری.
   useEffect(() => {
@@ -147,7 +235,9 @@ export function NewLoadingRequestForm({
       setError('مقدار درخواستی باید عددی بزرگ‌تر از صفر باشد');
       return;
     }
-    if (qty > selectedOrder.remainingQty) {
+    // فقط وقتی مانده‌ای در دست است (حالت انتخاب سفارش). در حالت انتخاب محصول مانده
+    // معنا ندارد و Backend هم قید BR-05 را اعمال نمی‌کند.
+    if (selectedOrder.remainingQty !== null && qty > selectedOrder.remainingQty) {
       setError(
         `مقدار درخواستی از مانده سفارش (${formatNumber(selectedOrder.remainingQty)}) بیشتر است`,
       );
@@ -163,7 +253,10 @@ export function NewLoadingRequestForm({
     }
 
     const input: CreateLoadingRequestInput = {
-      orderId: selectedOrder.id,
+      // در حالت انتخاب محصول سفارشی انتخاب نشده، پس کلید ارسال نمی‌شود و Backend
+      // سفارشِ مرجع را حل می‌کند. (ValidationPipe با whitelist، مقدار undefined را
+      // به‌عنوان فیلد ناشناخته رد نمی‌کند اما حذف کلید صریح‌تر است.)
+      ...(selectedOrder.orderId ? { orderId: selectedOrder.orderId } : {}),
       productId: selectedOrder.productId,
       requestedQty: qty,
       vehicleType,
@@ -239,18 +332,28 @@ export function NewLoadingRequestForm({
                   required
                 >
                   <option value="">
-                    {ordersLoading ? 'در حال دریافت سفارش‌ها…' : 'انتخاب سفارش دارای مانده…'}
+                    {ordersLoading
+                      ? 'در حال دریافت فهرست…'
+                      : productSelection
+                        ? 'انتخاب کنید…'
+                        : 'انتخاب سفارش دارای مانده…'}
                   </option>
                   {orders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.orderNumber} — {o.productName} (مانده: {formatNumber(o.remainingQty)})
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
               )}
-              {!order && !ordersLoading && orders.length === 0 && (
+              {/* خطای دریافت فهرست با «سفارشی ندارید» اشتباه گرفته نمی‌شود. */}
+              {!order && !ordersLoading && ordersError !== null && (
+                <span className="mt-1.5 block text-xs text-danger">{ordersError}</span>
+              )}
+              {!order && !ordersLoading && ordersError === null && orders.length === 0 && (
                 <span className="mt-1.5 block text-xs text-on-surface-variant/80">
-                  سفارش فعالی با مانده قابل اعلام بار ندارید.
+                  {productSelection
+                    ? 'فهرست محصولات در دسترس نیست؛ با کارخانه تماس بگیرید.'
+                    : 'سفارش فعالی با مانده قابل اعلام بار ندارید.'}
                 </span>
               )}
             </label>
@@ -262,12 +365,15 @@ export function NewLoadingRequestForm({
                   <span>محصول:</span>
                   <span className="font-bold text-on-surface">{selectedOrder.productName}</span>
                 </div>
-                <div className="mt-1.5 flex justify-between">
-                  <span>مانده سفارش:</span>
-                  <span className="font-bold text-on-surface tabular-nums">
-                    {formatNumber(selectedOrder.remainingQty)}
-                  </span>
-                </div>
+                {/* مانده فقط در حالت انتخاب سفارش معنا دارد (بخش ۹.۵). */}
+                {selectedOrder.remainingQty !== null && (
+                  <div className="mt-1.5 flex justify-between">
+                    <span>مانده سفارش:</span>
+                    <span className="font-bold text-on-surface tabular-nums">
+                      {formatNumber(selectedOrder.remainingQty)}
+                    </span>
+                  </div>
+                )}
                 <div className="mt-1.5 flex justify-between">
                   <span>تاریخ درخواستی (فردا — غیرقابل تغییر):</span>
                   <span className="font-bold text-on-surface">{tomorrowLabel}</span>
@@ -289,7 +395,7 @@ export function NewLoadingRequestForm({
                 disabled={disabled}
                 required
               />
-              {qtyTooHigh && selectedOrder && (
+              {selectedOrder !== null && selectedOrder.remainingQty !== null && qtyTooHigh && (
                 <span className="mt-1.5 block text-xs text-danger">
                   حداکثر مقدار مجاز: {formatNumber(selectedOrder.remainingQty)} (BR-05)
                 </span>

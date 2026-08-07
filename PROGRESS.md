@@ -1,14 +1,21 @@
-# PROGRESS — پیشرفت فاز ۶ و ۷
+# PROGRESS — پیشرفت فاز ۶ تا ۸
 
-آخرین به‌روزرسانی: 2026-07-14
+آخرین به‌روزرسانی: 2026-08-07
 
 ## وضعیت کلی
 - فازهای ۰ تا ۵.۵: ✅ کامل (بررسی و تایید شده — typecheck و کل تست‌ها سبز)
 - فاز ۶ (اتصال ERP): ✅ کامل (Mock-محور، env-driven) — تایید شد با کل تست‌ها سبز
 - فاز ۷ (آماده‌سازی Production): ✅ کامل (7a–7e) — تایید شد با کل تست‌ها سبز
+- فاز ۸ (حالت پایلوت یک‌هفته‌ای): کد کامل — جزئیات در `PILOT_MODE.md`.
+  شاخهٔ `feature/pilot-manual-mode`، هنوز کامیت نشده (در انتظار تایید کاربر).
 
 ### وضعیت تایید نهایی
-✅ **کل مجموعه تست سبز: ۳۷ Suite / ۲۰۱ تست / ۰ خطا** (اجرا شد و تایید شد).
+✅ **کل مجموعه تست سبز: ۳۸ Suite / ۲۱۳ تست / ۰ خطا** (اجرا و تایید شد — 2026-08-07).
+`pnpm --filter @cement/api build` و `tsc --noEmit` روی `apps/web` هر دو با کد ۰.
+
+⚠️ تست E2E پایلوت (`apps/api/test/pilot-manual-mode.e2e-spec.ts`) در این شمار **نیست**:
+با `pnpm --filter @cement/api test:e2e` جدا اجرا می‌شود و به دیتابیس تست واقعی
+(`DATABASE_URL_TEST`) + `prisma migrate deploy` + `prisma db seed` نیاز دارد.
 دو خطای اولیهٔ FileStorageService و pagination.dto رفع شدند:
 - `file-storage.service.ts` → `resolvePath` کلید خام را resolve می‌کند (نقطهٔ پسوند حفظ
   می‌شود) و هر مسیر خارج از ریشه را با بررسی پیشوند + جداکنندهٔ انتهایی رد می‌کند.
@@ -126,6 +133,36 @@
 - [x] 7d: Sentry + تایید Security Headers/HTTPS — کدنویسی شد
 - [ ] 7e: پوشش تست ≥۸۰٪ + تست بار پایه
 
+## فاز ۸ — اصلاحات این جلسه (2026-08-07)
+
+سه نقص واقعی که typecheck/تست را قفل کرده بودند یا یک قابلیت را از کار انداخته بودند:
+
+1. **جستجوی مشتریان کامل از کار افتاده بود.**
+   `AdminCustomersController.list` مقدار `search` را با `@Query('search')` جدا می‌خواند،
+   ولی `ValidationPipe` سراسری با `forbidNonWhitelisted: true` اجرا می‌شود و `search` در
+   هیچ DTOای اعلام نشده بود → هر `?search=` پاسخ ۴۰۰ می‌گرفت. جعبهٔ جستجو در
+   `apps/web/app/admin/customers/page.tsx` وجود داشت و منطق جستجو هم در
+   `AdminCustomerRepository.buildWhere` کامل بود؛ فقط لایهٔ اعتبارسنجی وسط راه را می‌بست.
+   → `dto/list-customers-query.dto.ts` (جدید) که `PaginationQueryDto` را گسترش می‌دهد.
+   عمداً به `PaginationQueryDto` مشترک اضافه نشد تا هر مسیر لیستی دیگری هم بی‌دلیل
+   `search` نپذیرد. تست رگرسیون: `dto/list-customers-query.dto.spec.ts` (۵ تست) —
+   شامل تست «پارامتر ناشناخته همچنان ۴۰۰ می‌شود» تا ثابت شود whitelist شل نشده است.
+2. **`ManualOrderModal.tsx`** — `productRows[0].id` تحت `noUncheckedIndexedAccess`
+   خطای TS2532 می‌داد (شرط `length === 1` نوع عضو صفر را باریک نمی‌کند).
+3. **`KpiCard.tsx`** — نگاشت `Record<string, …>` بود، پس `accentMap[accent]` و حتی
+   `accentMap.blue` هم `| undefined` می‌شدند (TS18048). کلید به اتحاد `KpiAccent` تغییر
+   کرد و `?? accentMap.blue` حذف شد — دیگر لازم نیست.
+
+### نقص شناخته‌شده و رفع‌نشده (خارج از دامنهٔ این جلسه)
+**`GENERIC_500` برای «یافت نشد» به کار می‌رود** و HTTP 500 برمی‌گرداند، در حالی که خطای
+سمت کاربر است و باید ۴۰۴ باشد. حدود ۸ فراخوان در ۵ ماژول:
+`admin-customers.service.ts` (خطوط ۱۰۹، ۱۳۳، ۱۵۰، ۱۵۴، ۱۷۱، ۱۸۱)،
+`admin-complaints.service.ts:43`، `notification-query.service.ts:33,45`.
+کاتالوگ خطای بخش ۱۶ هیچ کد «مشتری یافت نشد» ندارد؛ رفع درست یعنی افزودن یک کد ۴۰۴
+(مثلاً `ADMIN_003`) به کاتالوگ و سپس جایگزینی. چون این تغییرِ قرارداد API است و
+`pilot-manual-mode.e2e-spec.ts:557` عملاً همان رفتار غلط (`.expect(500)`) را قفل کرده،
+پیش از اقدام باید تصمیم گرفته شود. رفتار فعلی دست‌نخورده رها شد.
+
 ## نکته‌ها
-- پروژه مخزن git نیست (`git rev-parse` → not a repository). برای commit های خواسته‌شده باید
-  ابتدا `git init` شود — پیش از این کار از کاربر تایید گرفته شود.
+- پروژه اکنون مخزن git است (شاخهٔ فعلی: `feature/pilot-manual-mode`، پایه: `26c1f78`).
+  کارهای فاز ۸ هنوز کامیت نشده‌اند — طبق قرار قبلی، کامیت فقط با تایید صریح کاربر.

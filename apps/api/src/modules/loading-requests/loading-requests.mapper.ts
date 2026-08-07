@@ -3,6 +3,7 @@ import type {
   AdminLoadingRequestRow,
   LoadingRequestDto,
   LoadingRequestSumRow,
+  SelectableOrderDto,
 } from '@cement/shared-types';
 import { LoadingRequestStatus } from '@cement/shared-types';
 import type { Prisma } from '@prisma/client';
@@ -11,10 +12,22 @@ import type {
   AdminLoadingRequestDetailRow,
   AdminLoadingRequestWithContext,
   LoadingRequestWithRelations,
+  SelectableOrderRow,
 } from './loading-requests.repository';
 
 function toStatus(status: string): LoadingRequestStatus {
   return LoadingRequestStatus[status as keyof typeof LoadingRequestStatus];
+}
+
+/** ردیف سفارش قابل انتخاب در فرم اعلام بار (بخش ۹.۵) — بدون هیچ فیلد مالی. */
+export function toSelectableOrderDto(row: SelectableOrderRow): SelectableOrderDto {
+  return {
+    id: row.id,
+    orderNumber: row.orderNumber,
+    productId: row.productId,
+    productName: row.product.name,
+    remainingQty: toNum(row.remainingQty),
+  };
 }
 
 export function toLoadingRequestDto(row: LoadingRequestWithRelations): LoadingRequestDto {
@@ -84,6 +97,11 @@ export function toAdminLoadingRequestRow(
     requestDate: row.requestDate.toISOString(),
     status: toStatus(row.status),
     submittedAt: row.submittedAt.toISOString(),
+    // مقصد/تحویل‌گیرنده: فیلدهای اسکالر همین رکورد، پس Query اضافه‌ای لازم نیست.
+    destinationCity: row.destinationCity,
+    additionalAddress: row.additionalAddress,
+    destinationPostalCode: row.destinationPostalCode,
+    recipientMobile: row.recipientMobile,
   };
 }
 

@@ -156,6 +156,37 @@ export class AdminCustomerRepository {
     });
   }
 
+  /**
+   * حذف نرم مشتری (بخش ۵.۲) — رکورد فیزیکی حذف نمی‌شود.
+   *
+   * در یک تراکنش دو کار انجام می‌شود تا حالت نیمه‌حذف باقی نماند:
+   * ۱) `Customer` با `isDeleted/deletedAt/deletedBy` علامت‌گذاری می‌شود.
+   * ۲) `User` متصل غیرفعال می‌شود تا مشتری حذف‌شده دیگر نتواند وارد شود.
+   *
+   * ⚠️ سفارش/اعلام بار/تحویل‌های تاریخی عمداً دست‌نخورده می‌مانند: داده مالی واقعی‌اند
+   * و مبنای صورت‌حساب. `where` هم به `isDeleted: false` مقید است تا حذف دوباره
+   * `deletedAt` را بازنویسی نکند.
+   */
+  async softDelete(id: string, adminUserId: string): Promise<boolean> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.customer.updateMany({
+        where: { id, isDeleted: false },
+        data: { isDeleted: true, deletedAt: new Date(), deletedBy: adminUserId },
+      });
+      if (deleted.count === 0) {
+        return false;
+      }
+      // حساب کاربری هم غیرفعال می‌شود؛ خودِ User حذف نرم نمی‌شود تا تاریخچهٔ
+      // AuditLog که به userId ارجاع می‌دهد معنای خود را از دست ندهد.
+      await tx.user.updateMany({
+        where: { customerId: id },
+        data: { isActive: false },
+      });
+      return true;
+    });
+    return result;
+  }
+
   /** بازنشانی رمز مشتری: رمز هش‌شده جدید روی User متصل. */
   async resetPassword(customerId: string, passwordHash: string): Promise<boolean> {
     const result = await this.prisma.user.updateMany({

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  FEATURE_FLAGS,
   LoadingRequestStatus,
   OrderStatus,
 } from '@cement/shared-types';
@@ -10,15 +11,21 @@ import type {
   CreateLoadingRequestInput,
   LoadingRequestDto,
   LoadingRequestListData,
+  SelectableOrderDto,
+  SelectableProductDto,
 } from '@cement/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
-import { resolvePagination, type PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { resolvePagination } from '../../common/dto/pagination.dto';
 import { buildMeta, ResponseWithMeta } from '../../common/http/response-with-meta';
 import { ExcelService } from '../../common/services/excel.service';
+import { FeatureFlagsService } from '../../common/services/feature-flags.service';
 import { NotificationService } from '../notifications/notification.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import type { LoadingRequestQueryDto } from './dto/loading-request-query.dto';
+import type { AdminLoadingRequestQueryDto } from './dto/admin-loading-request-query.dto';
 import {
+  ActiveCarrierRow,
+  AdminCartableFilter,
   LoadingRequestFilter,
   LoadingRequestRepository,
 } from './loading-requests.repository';
@@ -27,6 +34,7 @@ import {
   toAdminLoadingRequestDetail,
   toAdminLoadingRequestRow,
   toLoadingRequestDto,
+  toSelectableOrderDto,
 } from './loading-requests.mapper';
 import { LoadingRequestStateMachine } from './loading-request.state-machine';
 import {
@@ -43,6 +51,43 @@ import {
 const MOCK_VAT_RATE = '0.09';
 
 /**
+ * برچسب فارسی وضعیت برای خروجی Excel (بخش ۹.۰ — فایل باید برای کاربر خوانا باشد،
+ * نه حاوی Enum انگلیسی). `Record` کامل است تا افزودن وضعیت جدید در آینده خطای
+ * کامپایل بدهد و این نگاشت فراموش نشود.
+ */
+const STATUS_LABELS: Record<LoadingRequestStatus, string> = {
+  [LoadingRequestStatus.SUBMITTED]: 'در انتظار بررسی',
+  [LoadingRequestStatus.APPROVED]: 'تاییدشده',
+  [LoadingRequestStatus.REJECTED]: 'ردشده',
+  [LoadingRequestStatus.LOADED]: 'بارگیری‌شده',
+  [LoadingRequestStatus.CANCELED]: 'لغوشده',
+};
+
+/**
+ * اگر رشتهٔ تاریخ «فقط تاریخ» باشد (`YYYY-MM-DD`)، انتهای همان روز را برمی‌گرداند؛
+ * وگرنه همان لحظهٔ دقیق. برای اینکه فیلتر «یک روز مشخص» (from = to) خالی برنگردد.
+ */
+function endOfDayIfDateOnly(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T23:59:59.999Z`)
+    : new Date(value);
+}
+
+/**
+ * دادهٔ توزینِ ثبت‌دستی تحویل (Task 3 — پایلوت). عمداً هیچ فیلد مالی ندارد؛
+ * مبالغ در فاز ۶ از حسابداری کارخانه می‌آید و تا آن موقع `null` می‌ماند (BR-18).
+ */
+export interface ManualDeliveryData {
+  weighingNumber: string;
+  deliveryDate: string;
+  carrierId?: string | null;
+  vehicleNumber?: string | null;
+  driverName?: string | null;
+  driverMobile?: string | null;
+  deliveredQty: number;
+}
+
+/**
  * سرویس اعلام بار.
  * فاز ۲: نمای Read (بخش ۹.۵ / ۱۱.۵).
  * فاز ۳: ثبت/لغو/تایید/رد/بارگیری با State Machine (بخش ۸.۱) و BR-04..BR-11 و BR-24.
@@ -55,6 +100,7 @@ export class LoadingRequestService {
     private readonly excel: ExcelService,
     private readonly stateMachine: LoadingRequestStateMachine,
     private readonly notifications: NotificationService,
+    private readonly flags: FeatureFlagsService,
   ) {}
 
   private buildFilter(
@@ -118,12 +164,32 @@ export class LoadingRequestService {
    * (پیش‌فرض Frontend روی SUBMITTED). بدون Scope مشتری (نقش ADMIN).
    */
   async adminList(
-    status: string | undefined,
-    query: PaginationQueryDto,
+    query: AdminLoadingRequestQueryDto,
   ): Promise<ResponseWithMeta<AdminLoadingRequestRow[]>> {
     const { page, pageSize, skip, take } = resolvePagination(query);
-    const { rows, total } = await this.repo.findAdminPage(status, skip, take);
+    const { rows, total } = await this.repo.findAdminPage(
+      this.buildAdminFilter(query),
+      skip,
+      take,
+    );
     return new ResponseWithMeta(rows.map(toAdminLoadingRequestRow), buildMeta(page, pageSize, total));
+  }
+
+  /**
+   * فیلتر کارتابل ادمین از پارامترهای Query.
+   *
+   * `to` وقتی «فقط تاریخ» باشد (`YYYY-MM-DD`) تا پایان همان روز باز می‌شود؛ وگرنه
+   * انتخاب یک روز (from = to) هیچ ردیفی برنمی‌گرداند، چون `new Date('YYYY-MM-DD')`
+   * نیمه‌شب است و مقایسه `lte` همهٔ ساعات آن روز را بیرون می‌گذارد.
+   */
+  private buildAdminFilter(query: AdminLoadingRequestQueryDto): AdminCartableFilter {
+    return {
+      status: query.status,
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? endOfDayIfDateOnly(query.to) : undefined,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    };
   }
 
   /** جزئیات کامل درخواست برای Drawer ادمین + مانده موجودی سفارش (BR-25). */
@@ -133,6 +199,93 @@ export class LoadingRequestService {
       throw new AppException('ORDER_001', 'اعلام بار مورد نظر یافت نشد');
     }
     return toAdminLoadingRequestDetail(row);
+  }
+
+  /**
+   * خروجی Excel کارتابل ادمین (بخش ۹.۰).
+   *
+   * همان فیلتر و همان مرتب‌سازی جدول را می‌گیرد و بدون صفحه‌بندی همهٔ ردیف‌های
+   * منطبق را می‌نویسد؛ پس «اعلام‌بارهای تاییدشدهٔ امروز» با انتخاب وضعیت + بازهٔ
+   * تاریخ در همان صفحه، دقیقاً همان چیزی است که دانلود می‌شود.
+   *
+   * ستون‌ها عمداً با ستون‌های جدول یکی‌اند (بخش ۹.۰: خروجی = نمای جدول).
+   */
+  async adminExportExcel(query: AdminLoadingRequestQueryDto): Promise<Buffer> {
+    const rows = await this.repo.findAdminAll(this.buildAdminFilter(query));
+    const dtos = rows.map(toAdminLoadingRequestRow);
+
+    return this.excel.build({
+      sheetName: 'کارتابل اعلام بار',
+      title: 'گزارش اعلام بار (کارتابل ادمین)',
+      columns: [
+        { header: 'شماره درخواست', key: 'requestNumber' },
+        { header: 'نام مشتری', key: 'customerName', width: 24 },
+        { header: 'شماره سفارش', key: 'orderNumber' },
+        { header: 'محصول', key: 'productName', width: 28 },
+        { header: 'مقدار درخواستی', key: 'requestedQty', numeric: true },
+        { header: 'تاریخ بارگیری', key: 'requestDate' },
+        { header: 'تاریخ ثبت', key: 'submittedAt' },
+        { header: 'وضعیت', key: 'status' },
+        { header: 'شهر مقصد', key: 'destinationCity', width: 20 },
+        { header: 'آدرس تکمیلی', key: 'additionalAddress', width: 34 },
+        { header: 'کد پستی', key: 'destinationPostalCode' },
+        { header: 'موبایل گیرنده', key: 'recipientMobile' },
+      ],
+      rows: dtos.map((r) => ({
+        requestNumber: r.requestNumber,
+        customerName: r.customerName,
+        orderNumber: r.orderNumber,
+        productName: r.productName,
+        requestedQty: r.requestedQty,
+        requestDate: r.requestDate.slice(0, 10),
+        submittedAt: r.submittedAt.slice(0, 10),
+        status: STATUS_LABELS[r.status],
+        destinationCity: r.destinationCity,
+        // `null` را ExcelService به سلول خالی تبدیل می‌کند (نه «—»)، پس دست‌نخورده می‌رود.
+        additionalAddress: r.additionalAddress,
+        destinationPostalCode: r.destinationPostalCode,
+        recipientMobile: r.recipientMobile,
+      })),
+      sumRow: {
+        requestedQty: dtos.reduce((sum, r) => sum + r.requestedQty, 0),
+      },
+    });
+  }
+
+  /**
+   * فهرست باربری‌های فعال برای فرم ثبت دستی تحویل (Task 3 — پایلوت).
+   * `Delivery.carrierId` کلید خارجی است؛ فرم باید از این فهرست انتخاب کند.
+   */
+  activeCarriers(): Promise<ActiveCarrierRow[]> {
+    return this.repo.findActiveCarriers();
+  }
+
+  /**
+   * سفارش‌های قابل انتخاب در فرم اعلام بار (بخش ۹.۵).
+   *
+   * ⚠️ چرا اینجا و نه `GET /orders`؟ در دورهٔ پایلوت `FEATURE_ORDERS_ENABLED=false`
+   * است و کل `OrdersController` با ۴۰۳/`FEATURE_DISABLED` بسته می‌شود، در حالی که
+   * ادمین با `MANUAL_ORDER_ENTRY` سفارش دستی ثبت می‌کند. نتیجه این‌که فرم اعلام بار
+   * باز بود ولی Dropdown آن همیشه خالی می‌ماند. این متد همان دادهٔ حداقلی را از مسیرِ
+   * بدون پرچمِ اعلام بار می‌دهد تا پرچم سفارشات دست‌نخورده بماند.
+   */
+  selectableOrders(customerId: string): Promise<SelectableOrderDto[]> {
+    return this.repo
+      .findSelectableOrders(customerId)
+      .then((rows) => rows.map(toSelectableOrderDto));
+  }
+
+  /**
+   * محصولات قابل انتخاب در فرم اعلام بار وقتی `FEATURE_PILOT_PRODUCT_SELECTION` روشن است.
+   *
+   * با خاموش بودن پرچم فهرست خالی برمی‌گردد تا حتی اگر Frontend اشتباهاً این مسیر را
+   * صدا بزند، حالت پایلوت از راه دور فعال نشود؛ منبع تصمیم همان پرچم است.
+   */
+  pilotSelectableProducts(): Promise<SelectableProductDto[]> {
+    if (!this.flags.isEnabled(FEATURE_FLAGS.PILOT_PRODUCT_SELECTION)) {
+      return Promise.resolve([]);
+    }
+    return this.repo.findPilotSelectableProducts();
   }
 
   // ==================== نوشتن (فاز ۳) ====================
@@ -155,13 +308,27 @@ export class LoadingRequestService {
     }
 
     // BR-04: فقط تا ساعت ۱۵:۰۰ امروز، و تاریخ درخواستی = فردا.
-    if (!isWithinRequestWindow(now)) {
+    // ⚠️ در دورهٔ پایلوت پرچم `REQUEST_CUTOFF_ENFORCED` خاموش است تا تست در هر ساعتی
+    // ممکن باشد. فقط همین قید ساعت برداشته می‌شود؛ `computeRequestDate` بدون تغییر
+    // اجرا می‌شود، پس تاریخ درخواستی همچنان «فردا» است و بقیهٔ BRها دست‌نخورده‌اند.
+    if (
+      this.flags.isEnabled(FEATURE_FLAGS.REQUEST_CUTOFF_ENFORCED) &&
+      !isWithinRequestWindow(now)
+    ) {
       throw new AppException('LOAD_002');
     }
     const requestDate = computeRequestDate(now);
 
+    // در حالت پایلوت مشتری «محصول» انتخاب می‌کند نه «سفارش»، پس سفارشِ مرجع اینجا
+    // حل می‌شود. با خاموش بودن پرچم، نبودِ orderId همان ORDER_001 قبلی را می‌دهد.
+    const productSelection = this.flags.isEnabled(FEATURE_FLAGS.PILOT_PRODUCT_SELECTION);
+    const order = input.orderId
+      ? await this.repo.findOrderForValidation(customerId, input.orderId)
+      : productSelection
+        ? await this.repo.findOrCreatePilotOrder(customerId, input.productId)
+        : null;
+
     // BR-06: سفارش باید متعلق به همین مشتری و شامل همین محصول باشد.
-    const order = await this.repo.findOrderForValidation(customerId, input.orderId);
     if (!order) {
       throw new AppException('ORDER_001');
     }
@@ -173,14 +340,19 @@ export class LoadingRequestService {
     }
 
     // BR-05: requestedQty <= totalQty − Σ(active requested).
-    const reserved = await this.repo.sumActiveRequestedQty(order.id);
+    // ⚠️ در حالت انتخاب محصول (پایلوت) این قید اعمال نمی‌شود: مشتری هنوز سفارش/موجودی
+    // ثبت‌شده‌ای ندارد و باید بتواند بدون مانده اعلام بار بدهد. بقیهٔ اعتبارسنجی‌ها
+    // (BR-24، BR-06، هم‌خوانی محصول) در همین حالت هم اجرا می‌شوند.
     const requested = new Prisma.Decimal(input.requestedQty);
-    const available = order.totalQty.minus(reserved);
-    if (available.lessThanOrEqualTo(0)) {
-      throw new AppException('LOAD_005');
-    }
-    if (requested.greaterThan(available)) {
-      throw new AppException('LOAD_001');
+    if (!productSelection) {
+      const reserved = await this.repo.sumActiveRequestedQty(order.id);
+      const available = order.totalQty.minus(reserved);
+      if (available.lessThanOrEqualTo(0)) {
+        throw new AppException('LOAD_005');
+      }
+      if (requested.greaterThan(available)) {
+        throw new AppException('LOAD_001');
+      }
     }
 
     // شماره متوالی به‌صورت مقاوم به رقابت هم‌زمانی تولید و ثبت می‌شود (رفع Race).
@@ -305,8 +477,16 @@ export class LoadingRequestService {
   /**
    * تکمیل بارگیری (APPROVED → LOADED). در فاز ۶ از ERP/Sync می‌آید؛ در فاز فعلی
    * توسط ادمین ثبت می‌شود (جدول ۸.۱). رکورد Delivery متناظر اتمیک ساخته می‌شود (BR-12).
+   *
+   * `manual` فقط دادهٔ توزین را از فرم ادمین می‌آورد (Task 3 پایلوت) و هیچ مسیر
+   * جایگزینی نمی‌سازد: همان assertTransition، همان markLoadedWithDelivery، همان
+   * اعلان. وقتی ERP وصل شود این پارامتر داده نمی‌شود و رفتار به حالت قبل برمی‌گردد
+   * — بدون تغییر کد.
+   *
+   * تفاوت مالی: در حالت manual قیمت پایه از ERP نیامده، پس هر چهار فیلد مالی
+   * `null` می‌مانند (نه صفر) و `deliveredAmount` سفارش صفر افزایش می‌یابد.
    */
-  async markLoaded(id: string): Promise<LoadingRequestDto> {
+  async markLoaded(id: string, manual?: ManualDeliveryData): Promise<LoadingRequestDto> {
     const row = await this.requireContext(id);
     this.stateMachine.assertTransition(
       row.status as LoadingRequestStatus,
@@ -314,12 +494,24 @@ export class LoadingRequestService {
     );
 
     const now = new Date();
-    const qty = row.requestedQty;
-    const basePrice = row.order.basePrice;
-    const baseAmount = qty.times(basePrice);
-    const vatAmount = baseAmount.times(new Prisma.Decimal(MOCK_VAT_RATE));
-    const amountWithFactors = baseAmount.plus(vatAmount);
-    const weighingNumber = await this.repo.nextWeighingNumber();
+    const qty = manual ? new Prisma.Decimal(manual.deliveredQty) : row.requestedQty;
+
+    // BR-05/BR-25: مقدار تحویل واقعی نباید از مقدار اعلام‌شده بیشتر باشد.
+    if (manual && qty.greaterThan(row.requestedQty)) {
+      throw new AppException(
+        'LOAD_001',
+        `مقدار تحویل نمی‌تواند بیشتر از مقدار اعلام‌شده (${row.requestedQty.toString()} تن) باشد`,
+      );
+    }
+
+    // در حالت پایلوت مبالغ از ERP نمی‌آید؛ null یعنی «نامعلوم»، صفر یعنی «صفر ریال».
+    const basePrice = manual ? null : row.order.basePrice;
+    const baseAmount = basePrice === null ? null : qty.times(basePrice);
+    const vatAmount =
+      baseAmount === null ? null : baseAmount.times(new Prisma.Decimal(MOCK_VAT_RATE));
+    const amountWithFactors =
+      baseAmount === null || vatAmount === null ? null : baseAmount.plus(vatAmount);
+    const weighingNumber = manual?.weighingNumber ?? (await this.repo.nextWeighingNumber());
 
     const updated = await this.repo.markLoadedWithDelivery(
       id,
@@ -327,8 +519,11 @@ export class LoadingRequestService {
       {
         weighingNumber,
         loadingRequestId: id,
-        deliveryDate: now,
-        carrierId: row.carrierId,
+        deliveryDate: manual ? new Date(manual.deliveryDate) : now,
+        carrierId: manual ? (manual.carrierId ?? null) : row.carrierId,
+        vehicleNumber: manual?.vehicleNumber ?? null,
+        driverName: manual?.driverName ?? null,
+        driverMobile: manual?.driverMobile ?? null,
         productId: row.productId,
         deliveredQty: qty,
         basePrice,
@@ -339,7 +534,7 @@ export class LoadingRequestService {
       {
         orderId: row.orderId,
         deliveredQty: qty,
-        deliveredAmount: amountWithFactors,
+        deliveredAmount: amountWithFactors ?? new Prisma.Decimal(0),
       },
     );
 

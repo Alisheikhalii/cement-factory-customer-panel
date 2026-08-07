@@ -18,9 +18,13 @@ import type { CreateLoadingRequestInput } from '@cement/shared-types';
  * ⚠️ `vehicleNumber`/`driverName` هرگز از مشتری گرفته نمی‌شوند (BR-09).
  */
 export class CreateLoadingRequestDto implements CreateLoadingRequestInput {
+  // اختیاری در سطح DTO چون در حالت `FEATURE_PILOT_PRODUCT_SELECTION` ارسال نمی‌شود.
+  // اجباری‌بودنِ آن در حالت عادی توسط سرویس اعمال می‌شود (نبودنش → ORDER_001)، تا
+  // یک DTO هر دو حالت را پوشش دهد و مسیر دومی برای ثبت درخواست ساخته نشود.
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  orderId!: string;
+  orderId?: string;
 
   @IsString()
   @IsNotEmpty()

@@ -14,8 +14,11 @@ import type {
   OrderDto,
   OrderListData,
 } from '@cement/shared-types';
+import { FEATURE_FLAGS } from '@cement/shared-types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomerScopeGuard } from '../auth/guards/customer-scope.guard';
+import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
+import { RequiresFeature } from '../../common/guards/feature-flag.decorator';
 import { requireCustomerId } from '../../common/utils/customer-scope.util';
 import { ResponseWithMeta } from '../../common/http/response-with-meta';
 import { sendExcel } from '../../common/http/file-response.util';
@@ -26,10 +29,15 @@ import { OrdersService } from './orders.service';
  * کنترلر سفارشات (بخش ۱۱.۴) — همه مسیرها فقط برای نقش CUSTOMER.
  * CustomerScopeGuard تضمین می‌کند فقط مشتری دارای customerId معتبر عبور کند؛
  * customerId خودِ Scope از توکن خوانده می‌شود (بخش ۶.۲).
+ *
+ * فاز پایلوت: کل کنترلر پشت `FEATURE_ORDERS_ENABLED` است. وقتی خاموش باشد همه
+ * مسیرهای /orders/* پاسخ ۴۰۳ با کد FEATURE_DISABLED می‌دهند (نه ۴۰۴). با روشن
+ * کردن پرچم، رفتار عیناً به حالت قبل برمی‌گردد — هیچ کدی تغییر نکرده است.
  */
 @ApiTags('orders')
 @ApiBearerAuth()
-@UseGuards(CustomerScopeGuard)
+@UseGuards(CustomerScopeGuard, FeatureFlagGuard)
+@RequiresFeature(FEATURE_FLAGS.ORDERS_ENABLED)
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}

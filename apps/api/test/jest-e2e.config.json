@@ -1,0 +1,16 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "roots": ["<rootDir>/test"],
+  "testRegex": ".*\\.e2e-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/test/tsconfig.json" }]
+  },
+  "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/test/setup-e2e.ts"],
+  "testTimeout": 60000,
+  "maxWorkers": 1,
+  "moduleNameMapper": {
+    "^@cement/shared-types$": "<rootDir>/../../packages/shared-types/src/index.ts"
+  }
+}

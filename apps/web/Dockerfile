@@ -1,6 +1,6 @@
 # ---------- Frontend (Next.js) Dockerfile — فاز ۰ ----------
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+RUN npm install -g pnpm@9.6.0
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./

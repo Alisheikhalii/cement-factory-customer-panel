@@ -19,21 +19,34 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import type { AuthUser } from '@cement/shared-types';
+import { FEATURE_FLAGS, type AuthUser, type FeatureFlag } from '@cement/shared-types';
 import { apiClient } from '../../lib/api';
 import { authStorage } from '../../lib/auth-storage';
 import { companyInfo } from '../../lib/company-info';
+import { useFeatureFlags } from '../../lib/feature-flags';
 
-/** هفت آیتم منوی کناری (بخش ۹.۰). */
-const NAV_ITEMS = [
+/**
+ * هفت آیتم منوی کناری (بخش ۹.۰).
+ * `flag` (اختیاری): آیتم به یک Feature Flag وابسته است و در حالت خاموش «نمایان اما
+ * غیرفعال» رندر می‌شود — حذف نمی‌شود (فاز پایلوت، PILOT_MODE.md).
+ */
+const NAV_ITEMS: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  flag?: FeatureFlag;
+}> = [
   { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard },
-  { href: '/finance', label: 'مالی', icon: Wallet },
-  { href: '/orders', label: 'سفارشات', icon: ShoppingCart },
+  { href: '/finance', label: 'مالی', icon: Wallet, flag: FEATURE_FLAGS.FINANCE_ENABLED },
+  { href: '/orders', label: 'سفارشات', icon: ShoppingCart, flag: FEATURE_FLAGS.ORDERS_ENABLED },
   { href: '/loading-requests', label: 'اعلام بار', icon: ClipboardList },
   { href: '/deliveries', label: 'تحویل', icon: Truck },
   { href: '/surveys', label: 'نظرسنجی', icon: PackageCheck },
   { href: '/complaints', label: 'شکایات', icon: MessageSquareWarning },
 ];
+
+/** متن Tooltip آیتم غیرفعال (بخش ۹.۰ — پیام یکنواخت فارسی). */
+const DISABLED_HINT = 'این بخش به‌زودی در دسترس قرار می‌گیرد';
 
 /**
  * پوسته‌ی پورتال مشتری مطابق مرجع animated_dashboard_hormozgan_cement:
@@ -50,6 +63,7 @@ export function PortalShell({
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const flags = useFeatureFlags();
 
   async function handleLogout(): Promise<void> {
     try {
@@ -79,6 +93,28 @@ export function PortalShell({
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
+            const disabled = item.flag !== undefined && !flags[item.flag];
+
+            // حالت «نمایان اما غیرفعال»: آیتم حذف نمی‌شود، فقط کم‌رنگ و بدون ناوبری
+            // رندر می‌گردد. عمداً <button> است نه <Link> تا کلیک هیچ Navigation ای
+            // ایجاد نکند (نه حتی با Ctrl+Click یا باز کردن در تب جدید).
+            if (disabled) {
+              return (
+                <li key={item.href}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    title={DISABLED_HINT}
+                    className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-on-surface-variant opacity-50"
+                  >
+                    <Icon className="h-5 w-5" />
+                    {`${item.label} (غیرفعال)`}
+                  </button>
+                </li>
+              );
+            }
+
             return (
               <li key={item.href}>
                 <Link
