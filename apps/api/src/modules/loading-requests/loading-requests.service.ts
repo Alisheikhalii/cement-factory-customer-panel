@@ -8,6 +8,8 @@ import {
 import type {
   AdminLoadingRequestDetail,
   AdminLoadingRequestRow,
+  BulkApproveLoadingRequestsResult,
+  BulkApproveSkippedItem,
   CreateLoadingRequestInput,
   LoadingRequestDto,
   LoadingRequestListData,
@@ -17,6 +19,7 @@ import type {
 import { AppException } from '../../common/exceptions/app.exception';
 import { resolvePagination } from '../../common/dto/pagination.dto';
 import { buildMeta, ResponseWithMeta } from '../../common/http/response-with-meta';
+import { formatJalaaliDateIso } from '../../common/utils/jalali.util';
 import { ExcelService } from '../../common/services/excel.service';
 import { FeatureFlagsService } from '../../common/services/feature-flags.service';
 import { NotificationService } from '../notifications/notification.service';
@@ -71,6 +74,20 @@ function endOfDayIfDateOnly(value: string): Date {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? new Date(`${value}T23:59:59.999Z`)
     : new Date(value);
+}
+
+/**
+ * دلیلِ خواناى رد شدن یک ردیف در تایید گروهی.
+ *
+ * خطاهای دامنه‌ای (`AppException`) پیام فارسیِ آماده دارند و همان نمایش داده می‌شود.
+ * هر خطای غیرمنتظرهٔ دیگری با پیام عمومی برگردانده می‌شود تا جزئیات داخلی
+ * (پیام Prisma، Stack) به کارتابل ادمین درز نکند.
+ */
+function describeBulkApproveFailure(error: unknown): string {
+  if (error instanceof AppException) {
+    return error.message;
+  }
+  return 'تایید این درخواست ناموفق بود';
 }
 
 /**
@@ -237,8 +254,8 @@ export class LoadingRequestService {
         orderNumber: r.orderNumber,
         productName: r.productName,
         requestedQty: r.requestedQty,
-        requestDate: r.requestDate.slice(0, 10),
-        submittedAt: r.submittedAt.slice(0, 10),
+        requestDate: formatJalaaliDateIso(r.requestDate),
+        submittedAt: formatJalaaliDateIso(r.submittedAt),
         status: STATUS_LABELS[r.status],
         destinationCity: r.destinationCity,
         // `null` را ExcelService به سلول خالی تبدیل می‌کند (نه «—»)، پس دست‌نخورده می‌رود.
@@ -440,6 +457,44 @@ export class LoadingRequestService {
   }
 
   /**
+   * تایید گروهی درخواست‌های انتخاب‌شده در کارتابل (SUBMITTED → APPROVED).
+   *
+   * ⚠️ هیچ منطق تاییدِ تازه‌ای اینجا نیست: برای هر شناسه دقیقاً همان
+   * `approve()` بالا صدا زده می‌شود، پس State Machine، `reviewedAt`/`reviewedBy`
+   * و Notification همان مسیر تک‌رکوردی را دارند (بدون مسیر کد موازی).
+   *
+   * هر شناسه مستقل بررسی می‌شود و ترتیبی اجرا می‌شود (نه موازی) تا:
+   *  - یک ردیفِ نامعتبر — مثلاً ادمین دیگری همین حالا رویش اقدام کرده و دیگر
+   *    SUBMITTED نیست — فقط `skipped` شود و کل دسته شکست نخورد؛
+   *  - و فشار همزمان روی DB/Notification کنترل‌شده بماند.
+   *
+   * شناسه‌های تکراری یک بار پردازش می‌شوند، وگرنه دومی حتماً skip می‌شد.
+   */
+  async bulkApprove(
+    ids: string[],
+    adminUserId: string,
+  ): Promise<BulkApproveLoadingRequestsResult> {
+    const approvedIds: string[] = [];
+    const skipped: BulkApproveSkippedItem[] = [];
+
+    for (const id of [...new Set(ids)]) {
+      try {
+        await this.approve(id, adminUserId);
+        approvedIds.push(id);
+      } catch (error) {
+        skipped.push({ id, reason: describeBulkApproveFailure(error) });
+      }
+    }
+
+    return {
+      approvedCount: approvedIds.length,
+      skippedCount: skipped.length,
+      approvedIds,
+      skipped,
+    };
+  }
+
+  /**
    * رد درخواست توسط ادمین (SUBMITTED → REJECTED، BR-11).
    * دلیل اجباری است؛ خالی → ADMIN_002.
    */
@@ -590,10 +645,10 @@ export class LoadingRequestService {
       ],
       rows: dtos.map((r) => ({
         requestNumber: r.requestNumber,
-        submittedAt: r.submittedAt.slice(0, 10),
+        submittedAt: formatJalaaliDateIso(r.submittedAt),
         productName: r.productName,
         carrierName: r.carrierName ?? 'کارخانه تعیین کند',
-        requestDate: r.requestDate.slice(0, 10),
+        requestDate: formatJalaaliDateIso(r.requestDate),
         requestedQty: r.requestedQty,
         deliveredQty: r.deliveredQty,
         remainingQty: r.remainingQty,

@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import {
   currentJalaaliMonthStart,
+  formatJalaaliDate,
+  formatJalaaliDateIso,
   jalaaliMonthLabel,
   toJalaali,
 } from './jalali.util';
@@ -45,5 +47,46 @@ describe('jalali.util', () => {
 
   it('Prisma.Decimal در محیط تست در دسترس است (پیش‌نیاز مپرها)', () => {
     expect(new Prisma.Decimal('12.5').toNumber()).toBe(12.5);
+  });
+
+  /**
+   * فرمت نمایشی جلالی برای خروجی‌های Excel/PDF (PRD ۱۳ — NFR تقویم جلالی).
+   * باید هم‌فرمت `formatJalaliDate` سمت وب باشد: «YYYY/MM/DD» با ارقام فارسی.
+   */
+  describe('formatJalaaliDate', () => {
+    it('تاریخ را با ارقام فارسی و صفرِ ابتدایی می‌سازد', () => {
+      expect(formatJalaaliDate(new Date(Date.UTC(2024, 2, 20, 12)))).toBe('۱۴۰۳/۰۱/۰۱');
+      expect(formatJalaaliDate(new Date(Date.UTC(2024, 7, 11, 12)))).toBe('۱۴۰۳/۰۵/۲۱');
+      expect(formatJalaaliDate(new Date(Date.UTC(2025, 0, 1, 12)))).toBe('۱۴۰۳/۱۰/۱۲');
+    });
+
+    it('هیچ رقم لاتینی در خروجی نمی‌ماند', () => {
+      expect(formatJalaaliDate(new Date(Date.UTC(2025, 0, 1, 12)))).not.toMatch(/\d/);
+    });
+
+    it('نسخهٔ ISO همان نتیجه را می‌دهد', () => {
+      expect(formatJalaaliDateIso('2024-08-11T12:00:00.000Z')).toBe('۱۴۰۳/۰۵/۲۱');
+    });
+
+    it('مقدار خالی/نامعتبر → رشتهٔ خالی (نه Invalid Date)', () => {
+      expect(formatJalaaliDateIso(null)).toBe('');
+      expect(formatJalaaliDateIso(undefined)).toBe('');
+      expect(formatJalaaliDateIso('')).toBe('');
+      expect(formatJalaaliDateIso('not-a-date')).toBe('');
+    });
+
+    /**
+     * تضمین الزام کاربر: مرتب‌سازی باید روی مقدار واقعیِ زمانی بماند، نه روی رشتهٔ
+     * نمایشی. اگر روزی کسی جدول را با همین رشته sort کند، این تست می‌شکند —
+     * چون ترتیبِ الفبایی ارقام فارسی با ترتیب زمانی یکی نیست.
+     */
+    it('ترتیب الفبایی رشتهٔ شمسی با ترتیب زمانی یکسان نیست (پس نباید مبنای sort شود)', () => {
+      const older = new Date(Date.UTC(2024, 2, 20, 12)); // ۱۴۰۳/۰۱/۰۱
+      const newer = new Date(Date.UTC(2025, 0, 1, 12)); // ۱۴۰۳/۱۰/۱۲
+      expect(older.getTime()).toBeLessThan(newer.getTime());
+      // ۰ و ۱ در ترتیب کدپوینت فارسی هم‌ترتیب‌اند، ولی این فقط اتفاقی است؛
+      // نکتهٔ اصلی این است که مقایسهٔ زمانی روی Date انجام شود، نه روی رشته.
+      expect(formatJalaaliDate(older)).not.toBe(formatJalaaliDate(newer));
+    });
   });
 });

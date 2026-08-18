@@ -16,6 +16,7 @@ import type {
   AdminLoadingRequestDetail,
   AdminLoadingRequestRow,
   AuthUser,
+  BulkApproveLoadingRequestsResult,
   LoadingRequestDto,
 } from '@cement/shared-types';
 import { FEATURE_FLAGS } from '@cement/shared-types';
@@ -27,6 +28,7 @@ import { ResponseWithMeta } from '../../common/http/response-with-meta';
 import { sendExcel } from '../../common/http/file-response.util';
 import { WriteThrottle } from '../../common/throttling/write-throttle.decorator';
 import { AdminLoadingRequestQueryDto } from './dto/admin-loading-request-query.dto';
+import { BulkApproveLoadingRequestsDto } from './dto/bulk-approve-loading-requests.dto';
 import { RegisterManualDeliveryDto } from './dto/register-manual-delivery.dto';
 import { RejectLoadingRequestDto } from './dto/reject-loading-request.dto';
 import type { ActiveCarrierRow } from './loading-requests.repository';
@@ -86,6 +88,28 @@ export class AdminLoadingRequestsController {
   @ApiOperation({ summary: 'جزئیات کامل درخواست + مانده موجودی (BR-25)' })
   detail(@Param('id') id: string): Promise<AdminLoadingRequestDetail> {
     return this.service.adminDetail(id);
+  }
+
+  /**
+   * تایید گروهی درخواست‌های انتخاب‌شده در کارتابل.
+   *
+   * ⚠️ باید پیش از `@Patch(':id/approve')` بماند تا `bulk-approve` به‌عنوان id
+   * تفسیر نشود — همان قاعدهٔ ترتیب مسیرها که برای `carriers` و `export/excel` هست.
+   *
+   * سرویس برای هر شناسه همان `approve` تک‌رکوردی را صدا می‌زند؛ ردیفی که دیگر
+   * SUBMITTED نیست skip و در پاسخ گزارش می‌شود، نه اینکه کل دسته شکست بخورد.
+   */
+  @Patch('bulk-approve')
+  @WriteThrottle()
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'تایید گروهی اعلام بار (برای هر شناسه همان SUBMITTED → APPROVED تک‌رکوردی)',
+  })
+  bulkApprove(
+    @CurrentUser() user: AuthUser,
+    @Body() body: BulkApproveLoadingRequestsDto,
+  ): Promise<BulkApproveLoadingRequestsResult> {
+    return this.service.bulkApprove(body.ids, user.userId);
   }
 
   @Patch(':id/approve')

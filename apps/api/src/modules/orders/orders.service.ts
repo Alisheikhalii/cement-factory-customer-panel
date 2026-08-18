@@ -4,6 +4,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { resolvePagination } from '../../common/dto/pagination.dto';
 import { buildMeta, ResponseWithMeta } from '../../common/http/response-with-meta';
 import { ExcelService } from '../../common/services/excel.service';
+import { formatJalaaliDateIso } from '../../common/utils/jalali.util';
 import { LoadingRequestService } from '../loading-requests/loading-requests.service';
 import type { OrderQueryDto } from './dto/order-query.dto';
 import { OrderFilter, OrderRepository } from './orders.repository';
@@ -86,7 +87,7 @@ export class OrdersService {
       ],
       rows: dtos.map((o) => ({
         orderNumber: o.orderNumber,
-        orderDate: o.orderDate.slice(0, 10),
+        orderDate: formatJalaaliDateIso(o.orderDate),
         productName: o.productName,
         status: o.status,
         totalQty: o.totalQty,

@@ -9,7 +9,7 @@ import type {
 } from '@cement/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { resolvePagination } from '../../common/dto/pagination.dto';
-import { iranDayRangeUtc } from '../../common/utils/jalali.util';
+import { formatJalaaliDateIso, iranDayRangeUtc } from '../../common/utils/jalali.util';
 import { buildMeta, ResponseWithMeta } from '../../common/http/response-with-meta';
 import { ExcelService } from '../../common/services/excel.service';
 import { PdfService } from '../../common/services/pdf.service';
@@ -135,7 +135,7 @@ export class FinanceService {
       </head><body>${companyPdfHeader('صورت‌حساب')}
       <table>
         <tr><th>شماره سند</th><td>${escapeHtml(dto.docNumber)}</td></tr>
-        <tr><th>تاریخ</th><td>${escapeHtml(dto.date.slice(0, 10))}</td></tr>
+        <tr><th>تاریخ</th><td>${escapeHtml(formatJalaaliDateIso(dto.date))}</td></tr>
         <tr><th>شرح</th><td>${escapeHtml(dto.description ?? '')}</td></tr>
         <tr><th>مبلغ</th><td>${dto.amount.toLocaleString('fa-IR')}</td></tr>
       </table></body></html>`;
@@ -220,14 +220,14 @@ export class FinanceService {
         { header: 'وضعیت', key: 'status' },
       ],
       rows: dtos.map((t) => ({
-        date: t.date.slice(0, 10),
+        date: formatJalaaliDateIso(t.date),
         docNumber: t.docNumber,
         operationType: t.operationType,
         bankName: t.bankName ?? '',
         accountNumber: t.accountNumber ?? '',
         amount: t.amount,
         description: t.description ?? '',
-        dueDate: t.dueDate ? t.dueDate.slice(0, 10) : '',
+        dueDate: formatJalaaliDateIso(t.dueDate),
         status: t.status,
       })),
       sumRow: { amount: toNum(sums.amount) },
@@ -248,7 +248,7 @@ export class FinanceService {
       .map(
         (t, i) => `<tr>
           <td>${(i + 1).toLocaleString('fa-IR')}</td>
-          <td>${escapeHtml(t.date.slice(0, 10))}</td>
+          <td>${escapeHtml(formatJalaaliDateIso(t.date))}</td>
           <td>${escapeHtml(t.docNumber)}</td>
           <td>${escapeHtml(t.operationType)}</td>
           <td class="num">${t.amount.toLocaleString('fa-IR')}</td>

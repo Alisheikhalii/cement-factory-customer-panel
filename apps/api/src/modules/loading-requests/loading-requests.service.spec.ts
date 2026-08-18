@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { LoadingRequestStatus, VehicleType, LoadType } from '@cement/shared-types';
+import { FEATURE_FLAGS, LoadingRequestStatus, VehicleType, LoadType } from '@cement/shared-types';
 import type { CreateLoadingRequestInput } from '@cement/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { LoadingRequestService } from './loading-requests.service';
@@ -63,8 +63,13 @@ describe('LoadingRequestService.create — BR-04/05/06/24', () => {
       findCustomerName: jest.fn().mockResolvedValue({ name: 'شرکت آزمون' }),
     };
     notifications = { emitLoadingRequest: jest.fn().mockResolvedValue(undefined) };
-    // پیش‌فرض تست: مهلت BR-04 اعمال می‌شود (رفتار عادی، پرچم روشن).
-    flags = { isEnabled: jest.fn().mockReturnValue(true) };
+    // پیش‌فرض تست: رفتار PRD — مهلت BR-04 اعمال می‌شود و «انتخاب محصول» پایلوت خاموش است.
+    // ⚠️ یک مقدار یکسان برای همهٔ پرچم‌ها درست نیست: با روشن بودن PILOT_PRODUCT_SELECTION
+    // قید موجودی BR-05 عمداً اجرا نمی‌شود (سرویس، شرط `!productSelection`)، پس تست‌های
+    // LOAD_001/LOAD_005 تا انتهای create می‌رفتند و روی Mockِ ثبت‌نشده می‌شکستند.
+    flags = {
+      isEnabled: jest.fn((flag: string) => flag === FEATURE_FLAGS.REQUEST_CUTOFF_ENFORCED),
+    };
     service = new LoadingRequestService(
       repo as never,
       {} as never,
@@ -367,5 +372,159 @@ describe('LoadingRequestService.markLoaded — ثبت دستی در برابر E
       code: 'ORDER_001',
     });
     expect(repo.markLoadedWithDelivery).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * تست واحد `bulkApprove` — تایید گروهی کارتابل ادمین.
+ *
+ * قید معماری همان قید `markLoaded` است: عملیات گروهی **مسیر کد موازی نمی‌سازد**؛
+ * برای هر شناسه دقیقاً همان `approve()` تک‌رکوردی اجرا می‌شود (همان State Machine،
+ * همان `reviewedAt`/`reviewedBy`، همان Notification). تست‌های زیر همین را می‌بندند،
+ * به‌علاوهٔ رفتار «یک ردیفِ نامعتبر کل دسته را شکست نمی‌دهد».
+ */
+describe('LoadingRequestService.bulkApprove — تایید گروهی کارتابل', () => {
+  const ADMIN_ID = 'admin-1';
+
+  let repo: { findByIdWithContext: jest.Mock; update: jest.Mock };
+  let notifications: { emitLoadingRequest: jest.Mock };
+  let service: LoadingRequestService;
+
+  /** یک ردیف اعلام بار با وضعیت دلخواه (همان شکلی که مخزن برمی‌گرداند). */
+  function row(id: string, status: string) {
+    return {
+      id,
+      requestNumber: `LR-${id}`,
+      submittedAt: new Date('2026-08-05T06:00:00.000Z'),
+      requestDate: new Date('2026-08-06T06:00:00.000Z'),
+      productId: 'prod-1',
+      orderId: 'order-1',
+      carrierId: null,
+      requestedQty: new Prisma.Decimal(20),
+      status,
+      reviewedByNote: null,
+      product: { name: 'سیمان تیپ ۲' },
+      carrier: null,
+      delivery: null,
+      customer: { id: 'cust-1', name: 'شرکت آزمون' },
+      order: { basePrice: new Prisma.Decimal(1_000_000) },
+    };
+  }
+
+  /** وضعیت هر شناسه در این تست؛ هر شناسهٔ نیامده «ناموجود» است. */
+  function stubStatuses(statuses: Record<string, string>): void {
+    repo.findByIdWithContext.mockImplementation((id: string) => {
+      const status = statuses[id];
+      return Promise.resolve(status === undefined ? null : row(id, status));
+    });
+  }
+
+  beforeEach(() => {
+    repo = {
+      findByIdWithContext: jest.fn(),
+      update: jest.fn((id: string) =>
+        Promise.resolve(row(id, LoadingRequestStatus.APPROVED)),
+      ),
+    };
+    notifications = { emitLoadingRequest: jest.fn().mockResolvedValue(undefined) };
+    service = new LoadingRequestService(
+      repo as never,
+      {} as never,
+      new LoadingRequestStateMachine(),
+      notifications as never,
+      { isEnabled: jest.fn().mockReturnValue(true) } as never,
+    );
+  });
+
+  it('همهٔ ردیف‌های SUBMITTED تایید می‌شوند و همان مسیر تک‌رکوردی اجرا می‌شود', async () => {
+    stubStatuses({
+      a: LoadingRequestStatus.SUBMITTED,
+      b: LoadingRequestStatus.SUBMITTED,
+      c: LoadingRequestStatus.SUBMITTED,
+    });
+
+    const result = await service.bulkApprove(['a', 'b', 'c'], ADMIN_ID);
+
+    expect(result.approvedCount).toBe(3);
+    expect(result.skippedCount).toBe(0);
+    expect(result.approvedIds).toEqual(['a', 'b', 'c']);
+    expect(result.skipped).toEqual([]);
+
+    // هر تایید یک update با همان فیلدهای مسیر تک‌رکوردی و یک اعلان دارد.
+    expect(repo.update).toHaveBeenCalledTimes(3);
+    expect(notifications.emitLoadingRequest).toHaveBeenCalledTimes(3);
+    const patch = repo.update.mock.calls[0][1] as Record<string, unknown>;
+    expect(patch.status).toBe(LoadingRequestStatus.APPROVED);
+    expect(patch.reviewedBy).toBe(ADMIN_ID);
+    expect(patch.reviewedAt).toBeInstanceOf(Date);
+  });
+
+  it('ردیفی که دیگر SUBMITTED نیست skip می‌شود و بقیه تایید می‌شوند', async () => {
+    // سناریوی واقعی: ادمین دیگری پیش از اجرای دسته روی «b» اقدام کرده است.
+    stubStatuses({
+      a: LoadingRequestStatus.SUBMITTED,
+      b: LoadingRequestStatus.APPROVED,
+      c: LoadingRequestStatus.SUBMITTED,
+    });
+
+    const result = await service.bulkApprove(['a', 'b', 'c'], ADMIN_ID);
+
+    expect(result.approvedIds).toEqual(['a', 'c']);
+    expect(result.approvedCount).toBe(2);
+    expect(result.skippedCount).toBe(1);
+    expect(result.skipped[0]?.id).toBe('b');
+    // فقط ردیف‌های واقعاً تاییدشده نوشته می‌شوند، نه ردیف skip‌شده.
+    expect(repo.update).toHaveBeenCalledTimes(2);
+    expect(notifications.emitLoadingRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it('دلیلِ skip همان پیام خطای مسیر تک‌رکوردی است (نه متن عمومی)', async () => {
+    stubStatuses({ b: LoadingRequestStatus.LOADED });
+
+    // پیام مرجع را از خودِ approve تک‌رکوردی می‌گیریم تا اگر روزی متن/کد خطا عوض شد،
+    // خلاصهٔ گروهی هم همان را نشان دهد و این تست بی‌سر‌و‌صدا از هم جدا نشود.
+    const single = await service.approve('b', ADMIN_ID).catch((err: unknown) => err);
+    expect(single).toBeInstanceOf(AppException);
+
+    const result = await service.bulkApprove(['b'], ADMIN_ID);
+
+    expect(result.skipped[0]?.reason).toBe((single as AppException).message);
+    expect(result.skipped[0]?.reason).not.toBe('');
+  });
+
+  it('شناسهٔ ناموجود کل دسته را شکست نمی‌دهد (فقط skip می‌شود)', async () => {
+    stubStatuses({ a: LoadingRequestStatus.SUBMITTED });
+
+    const result = await service.bulkApprove(['a', 'missing'], ADMIN_ID);
+
+    expect(result.approvedIds).toEqual(['a']);
+    expect(result.skipped.map((s) => s.id)).toEqual(['missing']);
+    expect(result.skipped[0]?.reason).toBeTruthy();
+  });
+
+  it('شناسهٔ تکراری یک بار پردازش می‌شود (وگرنه دومی حتماً skip می‌شد)', async () => {
+    stubStatuses({ a: LoadingRequestStatus.SUBMITTED });
+
+    const result = await service.bulkApprove(['a', 'a', 'a'], ADMIN_ID);
+
+    expect(result.approvedCount).toBe(1);
+    expect(result.skippedCount).toBe(0);
+    expect(repo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('لیست خالی: هیچ نوشتنی و هیچ اعلانی رخ نمی‌دهد', async () => {
+    stubStatuses({});
+
+    const result = await service.bulkApprove([], ADMIN_ID);
+
+    expect(result).toEqual({
+      approvedCount: 0,
+      skippedCount: 0,
+      approvedIds: [],
+      skipped: [],
+    });
+    expect(repo.findByIdWithContext).not.toHaveBeenCalled();
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(notifications.emitLoadingRequest).not.toHaveBeenCalled();
   });
 });

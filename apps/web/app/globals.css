@@ -89,6 +89,15 @@ body {
     box-shadow: 0 0 0 1px rgba(83, 0, 183, 0.2);
   }
 
+  /* تقویم شمسی (react-multi-date-picker).
+     ۱) پاپ‌آپ تقویم باید روی Drawer/Modal (که z-50 دارند) بنشیند، نه زیر آن —
+        مخصوصاً در حالت portal که تقویم مستقیم زیر <body> رندر می‌شود.
+     ۲) کتابخانه فونت خودش را ست نمی‌کند، پس Vazirmatn را از body ارث می‌برد. */
+  .rmdp-wrapper {
+    position: relative;
+    z-index: 60;
+  }
+
   /* دکمه گرادیان برند (مرجع: .gradient-btn — گرادیان ۱۳۵ درجه primary→secondary). */
   .gradient-btn {
     background: linear-gradient(135deg, #5300b7 0%, #4b41e1 100%);

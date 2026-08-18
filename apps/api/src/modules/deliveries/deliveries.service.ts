@@ -9,6 +9,7 @@ import { resolvePagination } from '../../common/dto/pagination.dto';
 import { buildMeta, ResponseWithMeta } from '../../common/http/response-with-meta';
 import { ExcelService } from '../../common/services/excel.service';
 import { PdfService } from '../../common/services/pdf.service';
+import { formatJalaaliDateIso } from '../../common/utils/jalali.util';
 import type { DeliveryQueryDto } from './dto/delivery-query.dto';
 import { DeliveryFilter, DeliveryRepository } from './deliveries.repository';
 import {
@@ -109,7 +110,7 @@ export class DeliveriesService {
       rows: dtos.map((d) => ({
         weighingNumber: d.weighingNumber,
         loadingRequestNumber: d.loadingRequestNumber ?? '',
-        deliveryDate: d.deliveryDate.slice(0, 10),
+        deliveryDate: formatJalaaliDateIso(d.deliveryDate),
         carrierName: d.carrierName ?? '',
         vehicleNumber: d.vehicleNumber ?? '',
         driverName: d.driverName ?? '',

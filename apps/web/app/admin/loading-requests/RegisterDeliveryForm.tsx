@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Truck } from 'lucide-react';
 import type { AdminLoadingRequestDetail } from '@cement/shared-types';
 import { apiClient, ApiError } from '../../../lib/api';
+import { JalaliDateInput } from '../../../components/shared/JalaliDateInput';
 
 /** بدنه‌ای که به Endpoint ثبت دستی تحویل ارسال می‌شود. */
 interface RegisterDeliveryBody {
@@ -44,8 +45,9 @@ export function RegisterDeliveryForm({
   const [error, setError] = useState<string | null>(null);
 
   const [weighingNumber, setWeighingNumber] = useState('');
-  // پیش‌فرض امروز؛ input[type=date] فرمت YYYY-MM-DD میلادی می‌خواهد.
-  const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // پیش‌فرض امروز. مقدار داخلی میلادی «YYYY-MM-DD» است (نمایش شمسی است)؛ عمداً از
+  // اجزای محلی ساخته می‌شود نه toISOString تا +۳:۳۰ تهران تاریخ را عقب نبرد.
+  const [deliveryDate, setDeliveryDate] = useState(() => todayLocalYmd());
   // باربری با شناسه انتخاب می‌شود چون `Delivery.carrierId` کلید خارجی است؛
   // رشتهٔ خالی یعنی «انتخاب نشده» و در بدنه ارسال نمی‌شود.
   const [carrierId, setCarrierId] = useState('');
@@ -80,6 +82,10 @@ export function RegisterDeliveryForm({
 
     if (weighingNumber.trim() === '') {
       setError('شماره توزین الزامی است');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
+      setError('تاریخ تحویل را انتخاب کنید');
       return;
     }
     const qty = Number(deliveredQty);
@@ -150,13 +156,18 @@ export function RegisterDeliveryForm({
         </Field>
 
         <Field label="تاریخ" htmlFor="rd-date" required>
-          <input
+          {/* تقویم شمسی (PRD ۱۳)؛ مقدار داخلی همان میلادی YYYY-MM-DD می‌ماند و
+              پایین‌تر به ISO تبدیل می‌شود، پس مقدار ذخیره‌شده تغییری نمی‌کند.
+              portal لازم است چون Drawer والد `overflow-auto` دارد. */}
+          <JalaliDateInput
             id="rd-date"
-            type="date"
             value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
+            onChange={setDeliveryDate}
             disabled={busy}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+            required
+            portal
+            containerClassName="w-full"
+            inputClassName="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
           />
         </Field>
 
@@ -255,6 +266,15 @@ export function RegisterDeliveryForm({
       </div>
     </form>
   );
+}
+
+/** تاریخ امروز به شکل میلادی `YYYY-MM-DD` با اجزای محلی (بدون جابه‌جایی UTC). */
+function todayLocalYmd(): string {
+  const now = new Date();
+  const year = String(now.getFullYear()).padStart(4, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function Field({

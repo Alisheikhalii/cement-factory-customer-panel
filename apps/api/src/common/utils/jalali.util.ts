@@ -177,6 +177,43 @@ export function jalaaliMonthLabel(date: Date): string {
   return `${PERSIAN_MONTHS[jm - 1] ?? ''} ${jy}`;
 }
 
+/** ارقام فارسی برای نمایش (نه برای مقادیر ذخیره‌شده). */
+const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'] as const;
+
+/** ارقام لاتین یک رشتهٔ نمایشی را به ارقام فارسی تبدیل می‌کند. */
+function toPersianDigits(value: string): string {
+  return value.replace(/\d/g, (digit) => PERSIAN_DIGITS[Number(digit)] ?? digit);
+}
+
+/**
+ * تاریخ جلالی به شکل «۱۴۰۳/۰۵/۲۱» — برای ستون‌های تاریخ در خروجی Excel/PDF.
+ *
+ * PRD بخش ۱۳ (NFR): «تقویم جلالی در همهٔ تاریخ‌ها». هم‌فرمت با
+ * `formatJalaliDate` سمت وب است تا آنچه در جدول دیده می‌شود با فایل خروجی یکی باشد.
+ *
+ * ⚠️ فقط برای نمایش. مقدار ذخیره‌شده در DB و مقداری که در DTOها روی سیم می‌رود
+ * همان `Date`/ISO میلادی می‌ماند، و مرتب‌سازی/فیلتر همچنان روی همان مقدار واقعی
+ * زمانی انجام می‌شود — نه روی این رشته.
+ */
+export function formatJalaaliDate(date: Date): string {
+  const { jy, jm, jd } = toJalaali(date);
+  const year = String(jy).padStart(4, '0');
+  const month = String(jm).padStart(2, '0');
+  const day = String(jd).padStart(2, '0');
+  return toPersianDigits(`${year}/${month}/${day}`);
+}
+
+/**
+ * همان `formatJalaaliDate` ولی برای رشتهٔ ISO (شکلی که تاریخ‌ها داخل DTOها دارند).
+ * مقدار خالی/نامعتبر → رشتهٔ خالی، تا سلول خروجی خالی بماند نه «Invalid Date».
+ */
+export function formatJalaaliDateIso(iso: string | null | undefined): string {
+  if (iso === null || iso === undefined || iso === '') return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return formatJalaaliDate(date);
+}
+
 /**
  * ابتدای ماه جلالیِ جاری به‌صورت لحظهٔ UTC متناظر با نیمه‌شب ایران (۰۰:۰۰ روز اول
  * همان ماه شمسی، به وقت ایران). برای فیلتر «تحویل ماه جاری» استفاده می‌شود.

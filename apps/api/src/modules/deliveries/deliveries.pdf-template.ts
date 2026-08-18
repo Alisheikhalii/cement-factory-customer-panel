@@ -1,5 +1,6 @@
 import type { DeliveryDto, DeliverySumRow } from '@cement/shared-types';
 import { companyPdfHeader } from '../../common/http/pdf-branding';
+import { formatJalaaliDateIso } from '../../common/utils/jalali.util';
 
 interface DeliveryPdfInput {
   rows: DeliveryDto[];
@@ -35,9 +36,11 @@ function esc(value: string | null): string {
  * شماره صفحه توسط PdfService (footerTemplate) درج می‌شود.
  */
 export function renderDeliveryPdfHtml(input: DeliveryPdfInput): string {
+  // بازهٔ فیلتر و ستون تاریخ به تقویم جلالی نمایش داده می‌شوند (PRD ۱۳)؛ مقدار
+  // ورودی همان ISO میلادی است و دست‌نخورده می‌ماند.
   const rangeText =
     input.from || input.to
-      ? `بازه: ${input.from?.slice(0, 10) ?? '—'} تا ${input.to?.slice(0, 10) ?? '—'}`
+      ? `بازه: ${formatJalaaliDateIso(input.from) || '—'} تا ${formatJalaaliDateIso(input.to) || '—'}`
       : 'بازه: همه رکوردها';
 
   const bodyRows = input.rows
@@ -47,7 +50,7 @@ export function renderDeliveryPdfHtml(input: DeliveryPdfInput): string {
         <td>${fmt(i + 1)}</td>
         <td>${esc(d.weighingNumber)}</td>
         <td>${esc(d.loadingRequestNumber)}</td>
-        <td>${esc(d.deliveryDate.slice(0, 10))}</td>
+        <td>${esc(formatJalaaliDateIso(d.deliveryDate))}</td>
         <td>${esc(d.carrierName)}</td>
         <td>${esc(d.vehicleNumber)}</td>
         <td>${esc(d.productName)}</td>

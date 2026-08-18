@@ -156,6 +156,34 @@ export interface RejectLoadingRequestInput {
   reason: string;
 }
 
+/**
+ * بدنهٔ تایید گروهی اعلام بار در کارتابل ادمین.
+ * فقط شناسه‌ها؛ خودِ Transition همان `approve` تک‌رکوردی است (بدون مسیر کد موازی).
+ */
+export interface BulkApproveLoadingRequestsInput {
+  ids: string[];
+}
+
+/** یک ردیفِ رد‌شده در تایید گروهی، با دلیلِ خوانا برای نمایش به ادمین. */
+export interface BulkApproveSkippedItem {
+  id: string;
+  /** پیام خطای همان درخواست (مثلاً «وضعیت فعلی اجازهٔ این تغییر را نمی‌دهد»). */
+  reason: string;
+}
+
+/**
+ * نتیجهٔ تایید گروهی: هر درخواست مستقل بررسی می‌شود، پس یک ردیفِ نامعتبر
+ * (مثلاً ادمین دیگری قبلاً رویش اقدام کرده) کل دسته را شکست نمی‌دهد — فقط
+ * در `skipped` گزارش می‌شود.
+ */
+export interface BulkApproveLoadingRequestsResult {
+  approvedCount: number;
+  skippedCount: number;
+  /** شناسهٔ درخواست‌هایی که با موفقیت SUBMITTED → APPROVED شدند. */
+  approvedIds: string[];
+  skipped: BulkApproveSkippedItem[];
+}
+
 
 // ==================== DELIVERIES (۱۱.۶ / ۹.۶) ====================
 

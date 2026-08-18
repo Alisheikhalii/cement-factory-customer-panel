@@ -19,6 +19,11 @@ import * as bcrypt from 'bcryptjs';
  * Idempotent: در ابتدای اجرا داده‌های تولیدی قبلی پاک و از نو ساخته می‌شوند
  * (Reset فقط در اسکریپت Seed؛ قانون Soft-Delete مربوط به زمان اجرای برنامه است، نه Seed).
  *
+ * ⚠️ از دورهٔ پایلوت به بعد، همهٔ آنچه بالا آمد (به‌همراه خودِ `reset()`) پشت پرچم
+ * `SEED_MOCK_DATA=true` است و پیش‌فرض **اجرا نمی‌شود**. اجرای بدون پرچم فقط دادهٔ
+ * مرجعِ لازم را به‌شکل Idempotent تضمین می‌کند: محصولات، باربری‌ها، و ادمین اصلی —
+ * بدون هیچ حذفی. جزئیات در JSDoc خودِ `SEED_MOCK_DATA` و `main()`.
+ *
  * قطعیت (Determinism): از یک PRNG با Seed ثابت استفاده می‌شود تا هر اجرا داده یکسان
  * بسازد و شناسه‌ها پایدار بمانند.
  *
@@ -82,6 +87,22 @@ const ADMIN_USERNAME = 'admin';
 const DEV_ADMIN_PASSWORD = 'Admin@12345';
 const DEV_CUSTOMER_PASSWORD = 'Customer@12345';
 
+/**
+ * پرچمِ Seed دادهٔ دمو — پیش‌فرض **خاموش**.
+ *
+ * چرا: محیط محلی دیگر یک محیط دمو نیست؛ پایلوت با مشتریان واقعیِ ساخته‌شده از پنل
+ * ادمین روی همین دیتابیس تست می‌شود. با روشن بودن پیش‌فرضِ قبلی، هر
+ * `prisma migrate reset`/`db seed` بی‌صدا ۱۰۰ مشتری و ۲۵۰ سفارش جعلی را برمی‌گرداند
+ * و کارتابل واقعی را غیرقابل‌استفاده می‌کرد.
+ *
+ * با `SEED_MOCK_DATA=true` رفتار قبلی مو‌به‌مو برمی‌گردد (شامل `reset()`)، پس این
+ * تغییر کاملاً برگشت‌پذیر است و هیچ منطقِ Seedی حذف نشده است.
+ *
+ * ⚠️ فقط رشتهٔ دقیق `true` (بی‌توجه به بزرگی/کوچکی حروف) روشن حساب می‌شود؛ مقادیری
+ * مثل `1` یا `yes` عمداً روشن نیستند تا روشن‌شدنِ تصادفی سخت‌تر باشد.
+ */
+const SEED_MOCK_DATA = (process.env.SEED_MOCK_DATA ?? '').trim().toLowerCase() === 'true';
+
 const DAY = 24 * 60 * 60 * 1000;
 
 // ==================== کمکی تاریخ (نسبت به «اکنون») ====================
@@ -118,6 +139,13 @@ async function chunkedCreate<T>(
 }
 
 // ==================== Reset ====================
+/**
+ * پاک‌سازی کامل — **فقط** در حالت `SEED_MOCK_DATA=true` صدا زده می‌شود.
+ *
+ * ⚠️ این تابع `user` و `customer` را هم خالی می‌کند، یعنی روی محیط پایلوت مشتریانِ
+ * واقعیِ ساخته‌شده از پنل ادمین را از بین می‌برد. به همین دلیل از `main()` بی‌قید
+ * فراخوانی نمی‌شود؛ منطق خودش دست‌نخورده مانده تا حالت دمو مو‌به‌مو مثل قبل کار کند.
+ */
 async function reset(): Promise<void> {
   // ترتیب FK-safe: فرزند → والد
   await prisma.surveyAnswerDetail.deleteMany();
@@ -152,12 +180,27 @@ interface SeededCustomer {
   name: string;
 }
 
+/**
+ * دادهٔ مرجع — **همیشه** اجرا می‌شود، حتی با `SEED_MOCK_DATA` خاموش.
+ *
+ * محصولات و باربری‌ها جدول مرجع‌اند نه دادهٔ دمو: محصول پایلوت
+ * («سیمان پاکتی تیپ ۲-۴۲۵ داخلی»، کد ERP `2001240002`) باید وجود داشته باشد وگرنه
+ * Dropdown فرم اعلام بار خالی می‌ماند، و بدون باربری، فرم ثبت دستی تحویل ناقص است.
+ *
+ * ⚠️ Idempotent است چون بدون پرچم، `reset()` اجرا نمی‌شود و این تابع ممکن است روی
+ * دیتابیسی با دادهٔ واقعی چند بار اجرا شود:
+ *  - محصول با `upsert` روی `erpCode` (یکتا) و `update: {}` — یعنی رکورد موجود
+ *    دست‌نخورده می‌ماند تا تغییرات ادمین (نام/غیرفعال‌سازی) بازنویسی نشود.
+ *  - باربری `@unique` ندارد، پس «اگر با این نام نبود بساز» — وگرنه هر اجرا تکراری
+ *    می‌ساخت. رکورد Soft-Delete شده هم «موجود» حساب می‌شود تا حذفِ عمدی ادمین
+ *    با اجرای بعدی برنگردد.
+ */
 async function seedProductsAndCarriers(): Promise<{
   products: SeededProduct[];
   carrierIds: string[];
 }> {
   for (const p of PRODUCTS) {
-    await prisma.product.create({ data: p });
+    await prisma.product.upsert({ where: { erpCode: p.erpCode }, update: {}, create: p });
   }
   const products = (await prisma.product.findMany()).map((p) => ({
     id: p.id,
@@ -168,21 +211,48 @@ async function seedProductsAndCarriers(): Promise<{
 
   const carrierIds: string[] = [];
   for (const name of CARRIER_NAMES) {
-    const c = await prisma.carrier.create({ data: { name } });
+    const existing = await prisma.carrier.findFirst({ where: { name } });
+    const c = existing ?? (await prisma.carrier.create({ data: { name } }));
     carrierIds.push(c.id);
   }
   return { products, carrierIds };
 }
 
-async function seedAdmins(): Promise<void> {
+/**
+ * ادمین اصلی — **همیشه** اجرا می‌شود (Idempotent).
+ *
+ * بدون این، یک دیتابیس تازه (یا دیتابیسی که دادهٔ دمو از آن پاک شده) هیچ راه ورودی
+ * نمی‌داشت و ساختن مشتری از پنل ادمین ممکن نبود.
+ *
+ * ⚠️ `update: {}` عمدی است: اگر ادمین رمزش را عوض کرده باشد، اجرای Seed نباید آن را
+ * به رمز پیش‌فرض توسعه برگرداند.
+ */
+async function seedPrimaryAdmin(): Promise<void> {
+  const passwordHash = await bcrypt.hash(DEV_ADMIN_PASSWORD, 10);
+  await prisma.user.upsert({
+    where: { username: ADMIN_USERNAME },
+    update: {},
+    create: {
+      username: ADMIN_USERNAME,
+      fullName: 'مدیر فروش (ادمین توسعه)',
+      passwordHash,
+      role: Role.ADMIN,
+      customerId: null,
+    },
+  });
+}
+
+/** ادمین‌های دوم/سوم — فقط دادهٔ دمو (بخش ۱۹.۱)، پس پشت `SEED_MOCK_DATA`. */
+async function seedExtraAdmins(): Promise<void> {
   const passwordHash = await bcrypt.hash(DEV_ADMIN_PASSWORD, 10);
   for (const [username, fullName] of [
-    [ADMIN_USERNAME, 'مدیر فروش (ادمین توسعه)'],
     ['admin2', 'کارشناس فروش دو'],
     ['admin3', 'کارشناس فروش سه'],
   ]) {
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { username: username as string },
+      update: {},
+      create: {
         username: username as string,
         fullName: fullName as string,
         passwordHash,
@@ -743,10 +813,40 @@ async function seedNotificationsAndReceipts(customers: SeededCustomer[]): Promis
   );
 }
 
+/**
+ * نقطهٔ ورود Seed — دو حالت دارد و پیش‌فرض حالتِ «فقط دادهٔ مرجع» است.
+ *
+ * چرا این ترتیب: `reset()` هم پشت پرچم است، چون بدون پرچم ممکن است این اسکریپت روی
+ * دیتابیس پایلوت با مشتریانِ واقعیِ ساخته‌شده از پنل ادمین اجرا شود (مثلاً
+ * `prisma migrate dev` که Seed را خودکار صدا می‌زند) و آن‌ها را پاک کند.
+ *
+ * حالت پیش‌فرض (`SEED_MOCK_DATA` خاموش): فقط محصولات/باربری‌ها/ادمین اصلی به‌شکل
+ * Idempotent تضمین می‌شوند — بدون هیچ `delete`ی.
+ * حالت دمو (`SEED_MOCK_DATA=true`): مو‌به‌مو همان رفتار قبلی، شامل `reset()` و کل
+ * دادهٔ انبوه بخش ۱۹.۱.
+ */
 async function main(): Promise<void> {
+  if (!SEED_MOCK_DATA) {
+    const { products, carrierIds } = await seedProductsAndCarriers();
+    await seedPrimaryAdmin();
+    // eslint-disable-next-line no-console
+    console.log(
+      [
+        'Seed در حالت «فقط دادهٔ مرجع» اجرا شد (SEED_MOCK_DATA تنظیم نشده).',
+        `  محصولات تضمین‌شده: ${products.length} | باربری: ${carrierIds.length} | ادمین اصلی: ${ADMIN_USERNAME}`,
+        '  هیچ دادهٔ تراکنشی‌ای ساخته یا حذف نشد؛ مشتریان واقعی دست‌نخورده‌اند.',
+        '',
+        'برای بازگرداندن دادهٔ دموی کامل (که ابتدا کل دیتابیس را پاک می‌کند):',
+        '  SEED_MOCK_DATA=true pnpm --filter @cement/api prisma db seed',
+      ].join('\n'),
+    );
+    return;
+  }
+
   await reset();
   const { products, carrierIds } = await seedProductsAndCarriers();
-  await seedAdmins();
+  await seedPrimaryAdmin();
+  await seedExtraAdmins();
   const customers = await seedCustomers();
   const { lrs } = await seedOrdersChain(customers, products, carrierIds);
   const deliveryCount = await seedDeliveries(lrs, products, carrierIds);
@@ -758,7 +858,7 @@ async function main(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log(
     [
-      'Seed فاز ۲ کامل شد:',
+      'Seed فاز ۲ در حالت دمو کامل شد (SEED_MOCK_DATA=true — دیتابیس ابتدا پاک شد):',
       `  محصولات: ${products.length} | باربری: ${carrierIds.length}`,
       `  مشتری: ${customers.length} (+۳ ادمین)`,
       `  سفارش: ${orderCounter} | اعلام‌بار: ${lrCounter} | تحویل: ${deliveryCount}`,
