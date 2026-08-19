@@ -14,6 +14,7 @@
     "test:cov": "jest --config jest.config.json --coverage",
     "test:e2e": "jest --config test/jest-e2e.config.json --runInBand",
     "loadtest": "node loadtest/loadtest.mjs",
+    "db:cleanup-mock": "ts-node prisma/cleanup-mock-data.ts",
     "prisma": "prisma"
   },
   "prisma": {

@@ -17,7 +17,8 @@
     "db:migrate": "pnpm --filter @cement/api prisma migrate dev",
     "db:generate": "pnpm --filter @cement/api prisma generate",
     "db:seed": "pnpm --filter @cement/api prisma db seed",
-    "db:studio": "pnpm --filter @cement/api prisma studio"
+    "db:studio": "pnpm --filter @cement/api prisma studio",
+    "db:cleanup-mock": "pnpm --filter @cement/api db:cleanup-mock"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
