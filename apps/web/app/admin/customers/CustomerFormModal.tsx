@@ -71,7 +71,9 @@ export function CustomerFormModal({
         await onSubmit(input);
       } else {
         const input: CreateCustomerInput = {
-          customerCode: values.customerCode,
+          // خالی = ثبت نشده؛ `undefined` فرستاده می‌شود تا سرور `null` ذخیره کند
+          // (نه رشتهٔ خالی — رشتهٔ خالی در ایندکس یکتا فقط جای یک مشتری داشت).
+          customerCode: values.customerCode?.trim() || undefined,
           name: values.name,
           nationalId: values.nationalId,
           economicCode: values.economicCode || undefined,
@@ -100,10 +102,11 @@ export function CustomerFormModal({
         </div>
 
         <form onSubmit={handleSubmit(submit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
-          <Field label="کد تفصیل" error={errors.customerCode?.message}>
+          <Field label="کد تفصیل (اختیاری)" error={errors.customerCode?.message}>
             <input
               {...register('customerCode')}
               readOnly={isEdit}
+              placeholder={isEdit ? undefined : 'در صورت نبود، خالی بگذارید'}
               className={inputClass(isEdit)}
             />
           </Field>

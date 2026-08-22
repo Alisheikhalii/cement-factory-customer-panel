@@ -13,7 +13,7 @@ import { RegisterDeliveryForm } from './RegisterDeliveryForm';
 
 /**
  * Drawer جزئیات کامل درخواست اعلام بار (بخش ۹.۹.۳). شامل مانده موجودی (BR-25)
- * و دکمه‌های تایید/رد. رد نیازمند دلیل اجباری است (BR-11 → ADMIN_002).
+ * و دکمه‌های تایید/رد. ⚠️ دلیل رد اختیاری است (BR-11 عمداً شل شد؛ قبلاً اجباری/ADMIN_002).
  */
 export function LoadingRequestDrawer({
   id,
@@ -53,14 +53,16 @@ export function LoadingRequestDrawer({
   }
 
   async function reject(): Promise<void> {
-    if (reason.trim() === '') {
-      setError('برای رد درخواست، ذکر دلیل الزامی است');
-      return;
-    }
+    // BR-11 عمداً شل شد: دلیل رد اختیاری است. اگر خالی باشد فیلد را اصلاً
+    // نمی‌فرستیم تا Backend آن را `null` ذخیره کند (نه رشتهٔ خالی).
+    const trimmed = reason.trim();
     setError(null);
     setBusy(true);
     try {
-      await apiClient.patch(`/admin/loading-requests/${id}/reject`, { reason: reason.trim() });
+      await apiClient.patch(
+        `/admin/loading-requests/${id}/reject`,
+        trimmed === '' ? {} : { reason: trimmed },
+      );
       onReviewed();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'رد درخواست ناموفق بود');
@@ -109,7 +111,16 @@ export function LoadingRequestDrawer({
               </div>
 
               <dl className="space-y-2.5 text-sm">
-                <Row label="مشتری" value={`${data.customer.name} (${data.customer.customerCode})`} />
+                {/* کد تفصیل اختیاری است؛ اگر ثبت نشده باشد فقط نام نمایش داده
+                    می‌شود، نه پرانتز خالی یا «(null)». */}
+                <Row
+                  label="مشتری"
+                  value={
+                    data.customer.customerCode
+                      ? `${data.customer.name} (${data.customer.customerCode})`
+                      : data.customer.name
+                  }
+                />
                 <Row label="شماره سفارش" value={data.orderNumber} />
                 <Row label="محصول" value={`${data.productName} (${data.productType})`} />
                 <Row label="نوع وسیله نقلیه" value={data.vehicleType} />
@@ -162,7 +173,7 @@ export function LoadingRequestDrawer({
               {isPending && rejectMode && (
                 <div className="mt-6">
                   <label className="mb-1 block text-sm font-medium text-slate-700">
-                    دلیل رد (الزامی)
+                    دلیل رد (اختیاری)
                   </label>
                   <textarea
                     value={reason}
@@ -217,7 +228,10 @@ function Row({
 }): React.ReactElement {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-2">
-      <dt className="shrink-0 text-slate-400">{label}</dt>
+      {/* لیبل‌ها روی پنل شیشه‌ای روشن با slate-400 کم‌کنتراست بودند؛ به slate-800
+          پررنگ تغییر کرد تا مشتری/شماره سفارش/محصول و بقیه واضح خوانده شوند
+          (پنل روشن است، پس متن تیره خواناست نه سفید). */}
+      <dt className="shrink-0 font-semibold text-slate-800">{label}</dt>
       <dd className={`text-left ${emphasize ? 'font-bold text-slate-900' : 'text-slate-700'}`}>
         {value}
       </dd>

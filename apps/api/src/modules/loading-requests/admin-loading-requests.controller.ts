@@ -39,7 +39,7 @@ import { LoadingRequestService } from './loading-requests.service';
  * مسیر: /api/v1/admin/loading-requests/*
  *
  * - لیست کارتابل + جزئیات (با مانده موجودی BR-25) در فاز ۴.۵.
- * - تایید/رد Transitionهای State Machine بخش ۸.۱ (BR-11: دلیل رد اجباری)، با PATCH طبق ۱۱.۱۰.
+ * - تایید/رد Transitionهای State Machine بخش ۸.۱ (دلیل رد اختیاری — BR-11 شل شد)، با PATCH طبق ۱۱.۱۰.
  * - `mark-loaded` جایگزین موقت Sync کارخانه (فاز ۶).
  */
 @ApiTags('admin')
@@ -126,7 +126,7 @@ export class AdminLoadingRequestsController {
   @Patch(':id/reject')
   @WriteThrottle()
   @HttpCode(200)
-  @ApiOperation({ summary: 'رد درخواست اعلام بار با دلیل اجباری (BR-11)' })
+  @ApiOperation({ summary: 'رد درخواست اعلام بار (SUBMITTED → REJECTED؛ دلیل اختیاری — BR-11 شل شد)' })
   reject(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

@@ -18,6 +18,8 @@ describe('LoadingRequestStateMachine (بخش ۸.۱)', () => {
       [S.SUBMITTED, S.CANCELED],
       [S.APPROVED, S.LOADED],
       [S.APPROVED, S.CANCELED],
+      // «ویرایش و ارسال مجدد» توسط مشتری — تنها انتقال برگشتی جدول.
+      [S.REJECTED, S.SUBMITTED],
     ])('%s → %s مجاز است', (from, to) => {
       expect(sm.canTransition(from, to)).toBe(true);
     });
@@ -25,12 +27,19 @@ describe('LoadingRequestStateMachine (بخش ۸.۱)', () => {
     it.each([
       // از حالت‌های پایانی هیچ انتقالی مجاز نیست
       [S.LOADED, S.CANCELED],
+      // ردشده فقط به SUBMITTED برمی‌گردد؛ نه مستقیم به تاییدشده یا بارگیری‌شده
       [S.REJECTED, S.APPROVED],
+      [S.REJECTED, S.LOADED],
+      [S.REJECTED, S.CANCELED],
       [S.CANCELED, S.APPROVED],
+      // لغوشده حتی با ویرایش هم برنمی‌گردد (بازگشتِ برگشتی فقط از REJECTED است)
+      [S.CANCELED, S.SUBMITTED],
+      [S.LOADED, S.SUBMITTED],
       // پرش‌های نامعتبر
       [S.SUBMITTED, S.LOADED],
       [S.APPROVED, S.APPROVED],
       [S.APPROVED, S.REJECTED],
+      [S.APPROVED, S.SUBMITTED],
     ])('%s → %s غیرمجاز است', (from, to) => {
       expect(sm.canTransition(from, to)).toBe(false);
     });
@@ -39,6 +48,10 @@ describe('LoadingRequestStateMachine (بخش ۸.۱)', () => {
   describe('assertTransition — پرتاب خطا', () => {
     it('انتقال مجاز نباید خطا بدهد', () => {
       expect(() => sm.assertTransition(S.SUBMITTED, S.APPROVED)).not.toThrow();
+    });
+
+    it('ارسال مجدد درخواست ردشده نباید خطا بدهد', () => {
+      expect(() => sm.assertTransition(S.REJECTED, S.SUBMITTED)).not.toThrow();
     });
 
     it('لغو درخواست بارگیری‌شده → LOAD_004 (BR-10، HTTP 409)', () => {

@@ -207,6 +207,7 @@ function ActivitiesFeed(): React.ReactElement {
               <span className="text-on-surface">{a.text}</span>
               <span className="shrink-0 text-xs text-on-surface-variant/70">
                 {new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+                  timeZone: 'Asia/Tehran',
                   month: '2-digit',
                   day: '2-digit',
                   hour: '2-digit',

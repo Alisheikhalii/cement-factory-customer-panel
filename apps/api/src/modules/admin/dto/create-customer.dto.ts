@@ -16,10 +16,15 @@ import { IsIranianNationalId } from '../../../common/validators/is-iranian-natio
  * تکراری بودن (ADMIN_001) در سرویس بررسی می‌شود.
  */
 export class CreateCustomerDto implements CreateCustomerInput {
+  /**
+   * کد تفصیل — اختیاری. در لحظهٔ ثبت مشتری همیشه از ERP در دست نیست و بعداً تکمیل
+   * می‌شود؛ اگر داده نشود، سرویس آن را `null` ثبت می‌کند. یکتایی کدهای واقعی
+   * همچنان در سرویس بررسی می‌شود (ADMIN_001).
+   */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'کد تفصیل الزامی است' })
   @MaxLength(50)
-  customerCode!: string;
+  customerCode?: string;
 
   @IsString()
   @IsNotEmpty({ message: 'نام مشتری الزامی است' })

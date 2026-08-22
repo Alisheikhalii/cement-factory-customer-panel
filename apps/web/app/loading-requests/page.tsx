@@ -31,6 +31,8 @@ export default function LoadingRequestsPage(): React.ReactElement {
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
+  // درخواستِ در حال ویرایش (Issue 2): SUBMITTED → ویرایش درجا، REJECTED → ویرایش و ارسال مجدد.
+  const [editTarget, setEditTarget] = useState<LoadingRequestDto | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -99,18 +101,40 @@ export default function LoadingRequestsPage(): React.ReactElement {
     {
       key: 'actions',
       header: 'عملیات',
-      render: (r) =>
-        CANCELABLE.includes(r.status) ? (
-          <button
-            onClick={() => handleCancel(r.id)}
-            disabled={cancelingId === r.id}
-            className="interactive-element rounded-lg border border-danger/25 bg-danger/5 px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
-          >
-            {cancelingId === r.id ? '…' : 'لغو'}
-          </button>
-        ) : (
-          <span className="text-xs text-on-surface-variant/40">—</span>
-        ),
+      render: (r) => {
+        // مشتری فقط درخواست خودش را ویرایش می‌کند (این لیست از قبل Scope شده است):
+        // SUBMITTED → «ویرایش» درجا، REJECTED → «ویرایش و ارسال مجدد» (Issue 2).
+        const canEdit = r.status === LoadingRequestStatus.SUBMITTED;
+        const canResubmit = r.status === LoadingRequestStatus.REJECTED;
+        const canCancel = CANCELABLE.includes(r.status);
+        if (!canEdit && !canResubmit && !canCancel) {
+          return <span className="text-xs text-on-surface-variant/40">—</span>;
+        }
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(canEdit || canResubmit) && (
+              <button
+                onClick={() => {
+                  setActionError(null);
+                  setEditTarget(r);
+                }}
+                className="interactive-element rounded-lg border border-primary/25 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+              >
+                {canResubmit ? 'ویرایش و ارسال مجدد' : 'ویرایش'}
+              </button>
+            )}
+            {canCancel && (
+              <button
+                onClick={() => handleCancel(r.id)}
+                disabled={cancelingId === r.id}
+                className="interactive-element rounded-lg border border-danger/25 bg-danger/5 px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+              >
+                {cancelingId === r.id ? '…' : 'لغو'}
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -192,6 +216,18 @@ export default function LoadingRequestsPage(): React.ReactElement {
           onClose={() => setShowNewForm(false)}
           onSuccess={() => {
             setShowNewForm(false);
+            reload();
+          }}
+        />
+      )}
+
+      {/* همان فرم، در حالت ویرایش/ارسال مجدد (Issue 2) — بدون فرم جداگانه. */}
+      {editTarget && (
+        <NewLoadingRequestForm
+          editTarget={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSuccess={() => {
+            setEditTarget(null);
             reload();
           }}
         />

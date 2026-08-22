@@ -25,7 +25,7 @@ import { ResponseWithMeta } from '../../common/http/response-with-meta';
 import { sendExcel } from '../../common/http/file-response.util';
 import { WriteThrottle } from '../../common/throttling/write-throttle.decorator';
 import { LoadingRequestQueryDto } from './dto/loading-request-query.dto';
-import { CreateLoadingRequestDto } from './dto/create-loading-request.dto';
+import { CreateLoadingRequestDto, UpdateLoadingRequestDto } from './dto/create-loading-request.dto';
 import { LoadingRequestService } from './loading-requests.service';
 
 /**
@@ -67,6 +67,23 @@ export class LoadingRequestsController {
     @Param('id') id: string,
   ): Promise<LoadingRequestDto> {
     return this.service.cancel(requireCustomerId(user), id);
+  }
+
+  /**
+   * ویرایش درخواست توسط خودِ مشتری (Issue 2): هم ویرایشِ درخواست SUBMITTED، هم
+   * «ویرایش و ارسال مجدد» درخواست REJECTED. همان بدنه/اعتبارسنجیِ ثبت (بخش ۹.۵).
+   * ⚠️ مثل بقیهٔ مسیرهای نوشتن، POST است و با `@Get(':id')` تداخل ندارد (متد HTTP جداست).
+   */
+  @Post(':id/edit')
+  @WriteThrottle()
+  @HttpCode(200)
+  @ApiOperation({ summary: 'ویرایش/ارسال مجدد درخواست اعلام بار توسط مشتری (Issue 2)' })
+  edit(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: UpdateLoadingRequestDto,
+  ): Promise<LoadingRequestDto> {
+    return this.service.update(requireCustomerId(user), id, body);
   }
 
   /**

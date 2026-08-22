@@ -14,7 +14,7 @@ import type { DashboardSummaryDto, DeliveryTrendDto } from '@cement/shared-types
 import { apiClient } from '../../lib/api';
 import { useApiData } from '../../lib/use-api-data';
 import { useRequireCustomer } from '../../lib/use-require-customer';
-import { formatCurrency, formatJalaliDate, formatNumber } from '../../lib/format';
+import { EMPTY_VALUE, formatCurrency, formatJalaliDate, formatNumber } from '../../lib/format';
 import { PortalShell } from '../../components/shared/PortalShell';
 import { DataStateView } from '../../components/shared/DataStateView';
 import { KpiCard } from '../../components/shared/KpiCard';
@@ -205,7 +205,7 @@ export default function DashboardPage(): React.ReactElement {
               <h3 className="mb-4 text-sm font-bold text-on-surface">اطلاعات کاربری</h3>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <Info label="نام" value={d.userInfo.name} />
-                <Info label="کد تفصیل" value={d.userInfo.customerCode} />
+                <Info label="کد تفصیل" value={d.userInfo.customerCode ?? EMPTY_VALUE} />
                 <Info label="کد ملی" value={d.userInfo.nationalId ?? '—'} />
                 <Info label="کد اقتصادی" value={d.userInfo.economicCode ?? '—'} />
                 <Info label="کد پستی" value={d.userInfo.postalCode ?? '—'} />

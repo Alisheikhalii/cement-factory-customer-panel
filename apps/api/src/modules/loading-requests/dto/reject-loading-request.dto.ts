@@ -1,10 +1,14 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import type { RejectLoadingRequestInput } from '@cement/shared-types';
 
-/** بدنه رد درخواست توسط ادمین (BR-11: دلیل اجباری → خالی = ADMIN_002). */
+/**
+ * بدنه رد درخواست توسط ادمین.
+ * ⚠️ BR-11 عمداً شل شد: دلیل رد اختیاری است (قبلاً @IsNotEmpty → ADMIN_002).
+ * ادمین می‌تواند با یا بدون دلیل رد کند؛ اگر داده شود فقط طول آن محدود می‌ماند.
+ */
 export class RejectLoadingRequestDto implements RejectLoadingRequestInput {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'برای رد درخواست، ذکر دلیل الزامی است' })
   @MaxLength(500)
-  reason!: string;
+  reason?: string;
 }

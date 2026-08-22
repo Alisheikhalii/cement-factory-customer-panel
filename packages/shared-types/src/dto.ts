@@ -116,6 +116,18 @@ export interface LoadingRequestDto {
   reviewedByNote: string | null;
   hasDelivery: boolean;
   deliveryId: string | null;
+  // فیلدهای قابل‌ویرایش برای پیش‌پُر کردن همان فرم ثبت هنگام «ویرایش» (Issue 2):
+  // مشتری روی درخواست SUBMITTED خودش یا هنگام «ویرایش و ارسال مجدد» درخواست REJECTED
+  // این مقادیر را می‌بیند و تغییر می‌دهد. `orderId`/`carrierId` می‌توانند null باشند
+  // (حالت انتخاب محصولِ پایلوت سفارش را نمی‌فرستد؛ باربری اختیاری است).
+  orderId: string | null;
+  vehicleType: VehicleType;
+  loadType: LoadType;
+  destinationCity: string;
+  additionalAddress: string | null;
+  destinationPostalCode: string | null;
+  recipientMobile: string;
+  carrierId: string | null;
 }
 
 export interface LoadingRequestSumRow {
@@ -151,9 +163,14 @@ export interface CreateLoadingRequestInput {
   carrierId?: string;
 }
 
-/** بدنه رد درخواست توسط ادمین (BR-11: دلیل اجباری). */
+/**
+ * بدنه رد درخواست توسط ادمین.
+ * ⚠️ BR-11 عمداً شل شد: دلیل رد دیگر اجباری نیست و می‌تواند حذف/خالی باشد
+ * (ادمین می‌تواند بدون ذکر دلیل رد کند). خالی‌بودن به `reviewedByNote = null`
+ * نگاشت می‌شود، نه رشتهٔ خالی، تا سمت مشتری چیزی مثل «null» نمایش داده نشود.
+ */
 export interface RejectLoadingRequestInput {
-  reason: string;
+  reason?: string;
 }
 
 /**
@@ -351,7 +368,8 @@ export interface DashboardProductRow {
 
 export interface DashboardUserInfo {
   name: string;
-  customerCode: string;
+  /** `null` = کد تفصیل ثبت نشده (اختیاری است)؛ در نمایش «—» می‌شود. */
+  customerCode: string | null;
   nationalId: string | null;
   economicCode: string | null;
   address: string | null;

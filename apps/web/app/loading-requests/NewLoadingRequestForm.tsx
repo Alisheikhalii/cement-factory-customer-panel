@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ClipboardList, Loader2, X } from 'lucide-react';
+import { AlertCircle, CalendarClock, ClipboardList, Loader2, X } from 'lucide-react';
 import {
   FEATURE_FLAGS,
+  LoadingRequestStatus,
   LoadType,
   VehicleType,
   type CreateLoadingRequestInput,
   type DashboardSummaryDto,
+  type LoadingRequestDto,
   type OrderDto,
   type SelectableOrderDto,
   type SelectableProductDto,
@@ -101,6 +103,26 @@ function productToChoice(row: SelectableProductDto): OrderChoice {
 }
 
 /**
+ * انتخابِ قفل‌شدهٔ سفارش/محصول هنگام «ویرایش» (Issue 2). چون در ویرایش، محصول/سفارش
+ * قابل تغییر نیست (فهرست فیلدهای قابل‌ویرایش شامل آن نیست) و همان فرم بازاستفاده
+ * می‌شود، از خودِ درخواست یک گزینهٔ تک‌عضوی می‌سازیم و Dropdown را قفل نمایش می‌دهیم.
+ *
+ * `remainingQty = null` است چون مانده سفارش در `LoadingRequestDto` نیست؛ پس چکِ
+ * سمت‌کلاینتِ BR-05 رد می‌شود و Backend آن را (با `excludeRequestId`) اعمال می‌کند —
+ * یعنی ویرایش «۱۰۰→۱۰۰» رد نمی‌شود ولی «۱۰۰→بیش از مانده» همچنان LOAD_001 می‌دهد.
+ */
+function editTargetToChoice(target: LoadingRequestDto): OrderChoice {
+  return {
+    value: target.orderId ?? target.productId,
+    label: target.productName,
+    productId: target.productId,
+    productName: target.productName,
+    orderId: target.orderId ?? undefined,
+    remainingQty: null,
+  };
+}
+
+/**
  * فرم/مودال ثبت درخواست اعلام بار جدید (بخش ۹.۵ / ۷.۲ — BR-04..BR-09, BR-24).
  *
  * - اگر `order` داده شود (از کشوی سفارش)، سفارش قفل است؛ وگرنه Dropdown سفارش‌های
@@ -113,36 +135,72 @@ function productToChoice(row: SelectableProductDto): OrderChoice {
  * - باربری فعلاً «کارخانه تعیین کند» (پیش‌فرض BR-08)؛ لیست باربری‌ها در Backend موجود نیست.
  * - شماره ماشین/راننده هرگز اینجا نیست (BR-09).
  * - خطاهای Backend (LOAD_001..006) عیناً به کاربر نمایش داده می‌شوند.
+ *
+ * ♻️ حالت «ویرایش» (Issue 2): اگر `editTarget` داده شود همین فرم برای ویرایش بازاستفاده
+ * می‌شود (هیچ فرم جداگانه‌ای ساخته نشده). فیلدها از درخواست Pre-fill می‌شوند، محصول/سفارش
+ * قفل است (قابل‌ویرایش نیست) و ارسال به‌جای POST /loading-requests به
+ * POST /loading-requests/:id/edit می‌رود. اگر درخواست REJECTED باشد، این «ویرایش و ارسال
+ * مجدد» است: علت رد بالای فرم نمایش داده می‌شود و Backend وضعیت را به SUBMITTED برمی‌گرداند.
  */
 export function NewLoadingRequestForm({
   order,
+  editTarget,
   onClose,
   onSuccess,
 }: {
   /** سفارش از پیش انتخاب‌شده (از کشوی سفارش)؛ اگر نباشد Dropdown نمایش داده می‌شود. */
   order?: OrderDto;
+  /** درخواستِ در حال ویرایش (Issue 2)؛ اگر باشد فرم در حالت ویرایش/ارسال‌مجدد است. */
+  editTarget?: LoadingRequestDto;
   onClose: () => void;
   onSuccess: () => void;
 }): React.ReactElement {
+  // گزینهٔ اولیهٔ سفارش/محصول: از کشوی سفارش، یا از خودِ درخواست هنگام ویرایش (قفل).
+  const initialChoice = order
+    ? orderToChoice(toSelectable(order))
+    : editTarget
+      ? editTargetToChoice(editTarget)
+      : null;
+  const isEdit = editTarget != null;
+
   const [orders, setOrders] = useState<OrderChoice[]>(
-    order ? [orderToChoice(toSelectable(order))] : [],
+    initialChoice ? [initialChoice] : [],
   );
-  const [ordersLoading, setOrdersLoading] = useState(!order);
+  // در حالت قفل (کشوی سفارش یا ویرایش) هیچ فهرستی بارگیری نمی‌شود.
+  const [ordersLoading, setOrdersLoading] = useState(!order && !editTarget);
   /**
    * خطای دریافت فهرست سفارش‌ها، جدا از `error` فرم نگه داشته می‌شود تا پیام
    * «سفارش فعالی ندارید» به‌اشتباه روی یک درخواست ناموفق نمایش داده نشود.
    */
   const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>(order?.id ?? '');
-  const [requestedQty, setRequestedQty] = useState('');
-  const [vehicleType, setVehicleType] = useState<VehicleType>(VehicleType.TRAILER);
-  const [loadType, setLoadType] = useState<LoadType>(LoadType.FIXED);
-  const [destinationCity, setDestinationCity] = useState('');
-  const [additionalAddress, setAdditionalAddress] = useState('');
-  const [destinationPostalCode, setDestinationPostalCode] = useState('');
-  const [recipientMobile, setRecipientMobile] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState<string>(initialChoice?.value ?? '');
+  const [requestedQty, setRequestedQty] = useState(
+    editTarget ? String(editTarget.requestedQty) : '',
+  );
+  const [vehicleType, setVehicleType] = useState<VehicleType>(
+    editTarget?.vehicleType ?? VehicleType.TRAILER,
+  );
+  const [loadType, setLoadType] = useState<LoadType>(editTarget?.loadType ?? LoadType.FIXED);
+  const [destinationCity, setDestinationCity] = useState(editTarget?.destinationCity ?? '');
+  const [additionalAddress, setAdditionalAddress] = useState(
+    editTarget?.additionalAddress ?? '',
+  );
+  const [destinationPostalCode, setDestinationPostalCode] = useState(
+    editTarget?.destinationPostalCode ?? '',
+  );
+  const [recipientMobile, setRecipientMobile] = useState(editTarget?.recipientMobile ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // «ویرایش و ارسال مجدد» فقط وقتی درخواست ردشده باشد (REJECTED → SUBMITTED).
+  const isResubmit = editTarget?.status === LoadingRequestStatus.REJECTED;
+  // برچسبِ قفلِ محصول/سفارش: در حالت کشوی سفارش شماره سفارش + محصول، در حالت ویرایش
+  // فقط نام محصول (شماره سفارش در DTO نیست). null یعنی Dropdown نمایش داده شود.
+  const lockedLabel = order
+    ? `${order.orderNumber} — ${order.productName}`
+    : editTarget
+      ? editTarget.productName
+      : null;
 
   // در دورهٔ پایلوت پرچم مهلت خاموش است تا تست در هر ساعتی ممکن باشد؛ آن‌وقت نه
   // هشدار نمایش داده می‌شود و نه فرم قفل می‌شود. Backend همان پرچم را می‌خواند.
@@ -169,7 +227,8 @@ export function NewLoadingRequestForm({
   // همیشه خالی می‌ماند حتی وقتی ادمین سفارش دستی ثبت کرده است.
   // در حالت `PILOT_PRODUCT_SELECTION` همین Dropdown از فهرست محصولات پر می‌شود.
   useEffect(() => {
-    if (order) return;
+    // در حالت قفل (کشوی سفارش یا ویرایش) گزینه از پیش ساخته شده و فهرست لازم نیست.
+    if (order || editTarget) return;
     let active = true;
     const request = productSelection
       ? apiClient
@@ -202,10 +261,12 @@ export function NewLoadingRequestForm({
     return () => {
       active = false;
     };
-  }, [order, productSelection]);
+  }, [order, editTarget, productSelection]);
 
   // BR-24: Pre-fill موبایل تحویل‌گیرنده با موبایل حساب مشتری.
   useEffect(() => {
+    // در حالت ویرایش، موبایل از خودِ درخواست Pre-fill شده؛ نباید با موبایل حساب بازنویسی شود.
+    if (editTarget) return;
     let active = true;
     apiClient
       .get<DashboardSummaryDto>('/dashboard/summary')
@@ -220,7 +281,7 @@ export function NewLoadingRequestForm({
     return () => {
       active = false;
     };
-  }, []);
+  }, [editTarget]);
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -269,10 +330,19 @@ export function NewLoadingRequestForm({
 
     setSubmitting(true);
     try {
-      await apiClient.post('/loading-requests', input);
+      // Issue 2: در حالت ویرایش به مسیر اختصاصی همان درخواست می‌رود (همان بدنه/اعتبارسنجی)؛
+      // وگرنه ثبت درخواست تازه. Backend خودش SUBMITTED/ارسال‌مجدد را تشخیص می‌دهد.
+      const endpoint = editTarget ? `/loading-requests/${editTarget.id}/edit` : '/loading-requests';
+      await apiClient.post(endpoint, input);
       onSuccess();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'ثبت درخواست ناموفق بود');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : editTarget
+            ? 'ذخیره تغییرات ناموفق بود'
+            : 'ثبت درخواست ناموفق بود',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -289,7 +359,11 @@ export function NewLoadingRequestForm({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-secondary text-white">
               <ClipboardList className="h-4 w-4" />
             </span>
-            ثبت درخواست اعلام بار جدید
+            {isResubmit
+              ? 'ویرایش و ارسال مجدد درخواست'
+              : isEdit
+                ? 'ویرایش درخواست اعلام بار'
+                : 'ثبت درخواست اعلام بار جدید'}
           </h3>
           <button
             onClick={onClose}
@@ -312,13 +386,25 @@ export function NewLoadingRequestForm({
             </div>
           )}
 
+          {/* علت رد در حالت «ویرایش و ارسال مجدد» (Issue 2b) تا مشتری بداند چه چیزی را اصلاح کند. */}
+          {isResubmit && editTarget?.reviewedByNote && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-danger/25 bg-danger/10 p-3.5 text-xs leading-6 text-danger">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                <b>علت رد این درخواست:</b> {editTarget.reviewedByNote}
+                <br />
+                پس از اصلاح، درخواست دوباره برای بررسی کارشناس ارسال می‌شود.
+              </span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4 text-sm">
             {/* انتخاب سفارش (۹.۵) */}
             <label className="block">
               <span className="mb-1.5 block font-medium text-on-surface">سفارش (برگ فروش)</span>
-              {order ? (
+              {lockedLabel !== null ? (
                 <div className="input-soft w-full rounded-lg px-3 py-2.5 text-on-surface">
-                  {order.orderNumber} — {order.productName}
+                  {lockedLabel}
                 </div>
               ) : (
                 <select
@@ -346,16 +432,19 @@ export function NewLoadingRequestForm({
                 </select>
               )}
               {/* خطای دریافت فهرست با «سفارشی ندارید» اشتباه گرفته نمی‌شود. */}
-              {!order && !ordersLoading && ordersError !== null && (
+              {lockedLabel === null && !ordersLoading && ordersError !== null && (
                 <span className="mt-1.5 block text-xs text-danger">{ordersError}</span>
               )}
-              {!order && !ordersLoading && ordersError === null && orders.length === 0 && (
-                <span className="mt-1.5 block text-xs text-on-surface-variant/80">
-                  {productSelection
-                    ? 'فهرست محصولات در دسترس نیست؛ با کارخانه تماس بگیرید.'
-                    : 'سفارش فعالی با مانده قابل اعلام بار ندارید.'}
-                </span>
-              )}
+              {lockedLabel === null &&
+                !ordersLoading &&
+                ordersError === null &&
+                orders.length === 0 && (
+                  <span className="mt-1.5 block text-xs text-on-surface-variant/80">
+                    {productSelection
+                      ? 'فهرست محصولات در دسترس نیست؛ با کارخانه تماس بگیرید.'
+                      : 'سفارش فعالی با مانده قابل اعلام بار ندارید.'}
+                  </span>
+                )}
             </label>
 
             {/* محصول خودکار + مانده (BR-06) */}
@@ -511,7 +600,15 @@ export function NewLoadingRequestForm({
                 className="gradient-btn interactive-element flex flex-1 items-center justify-center gap-2 py-2.5 font-bold text-white"
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {submitting ? 'در حال ثبت…' : 'ثبت درخواست'}
+                {submitting
+                  ? isEdit
+                    ? 'در حال ذخیره…'
+                    : 'در حال ثبت…'
+                  : isResubmit
+                    ? 'ارسال مجدد'
+                    : isEdit
+                      ? 'ذخیره تغییرات'
+                      : 'ثبت درخواست'}
               </button>
               <button
                 type="button"

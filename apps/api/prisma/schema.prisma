@@ -18,13 +18,19 @@ datasource db {
 model Customer {
   id            String   @id @default(cuid())
   erpCustomerId String?  @unique // شناسه مشتری در ERP (کد تفصیل)
-  customerCode  String   @unique // کد تفصیل
+  // کد تفصیل — اختیاری است: در زمان ثبت مشتری همیشه در دسترس نیست و بعداً از ERP
+  // تکمیل می‌شود. `@unique` سر جای خود می‌ماند چون Postgres چند مقدار NULL را در
+  // ایندکس یکتا می‌پذیرد، پس چند مشتریِ بدون کد تفصیل هم‌زمان مجازند.
+  customerCode  String?  @unique // کد تفصیل (اختیاری)
   nationalId    String? // کد ملی
   economicCode  String? // کد اقتصادی
   name          String // نام مشتری
   address       String?  @db.Text
   postalCode    String?
-  mobile        String   @unique // موبایل - OTP و پیش‌فرض recipientMobile (BR-24)؛ Username ورود نیست
+  // موبایل - OTP و پیش‌فرض recipientMobile (BR-24)؛ Username ورود نیست.
+  // عمداً `@unique` ندارد: یک شماره واقعاً می‌تواند برای چند مشتری ثبت شود (مثلاً
+  // چند شرکت با یک نمایندهٔ واحد). یکتایی هویت با `nationalId`/`customerCode` است.
+  mobile        String // موبایل (تکراری بودن مجاز است)
   creditLimit   Decimal? @db.Decimal(18, 2) // اعتبار
   creditBalance Decimal? @db.Decimal(18, 2) // مانده اعتبار فعلی
   isActive      Boolean  @default(true)

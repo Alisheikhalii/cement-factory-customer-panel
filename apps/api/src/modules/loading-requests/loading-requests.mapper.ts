@@ -5,7 +5,7 @@ import type {
   LoadingRequestSumRow,
   SelectableOrderDto,
 } from '@cement/shared-types';
-import { LoadingRequestStatus } from '@cement/shared-types';
+import { LoadingRequestStatus, LoadType, VehicleType } from '@cement/shared-types';
 import type { Prisma } from '@prisma/client';
 import { toNum } from '../../common/utils/decimal.util';
 import type {
@@ -17,6 +17,15 @@ import type {
 
 function toStatus(status: string): LoadingRequestStatus {
   return LoadingRequestStatus[status as keyof typeof LoadingRequestStatus];
+}
+
+/** enum خودرو/بار پرزیما (رشته‌ای، هم‌مقدار) → enum shared-types، مثل `toStatus`. */
+function toVehicleType(value: string): VehicleType {
+  return VehicleType[value as keyof typeof VehicleType];
+}
+
+function toLoadType(value: string): LoadType {
+  return LoadType[value as keyof typeof LoadType];
 }
 
 /** ردیف سفارش قابل انتخاب در فرم اعلام بار (بخش ۹.۵) — بدون هیچ فیلد مالی. */
@@ -48,6 +57,18 @@ export function toLoadingRequestDto(row: LoadingRequestWithRelations): LoadingRe
     reviewedByNote: row.reviewedByNote,
     hasDelivery: row.delivery !== null,
     deliveryId: row.delivery?.id ?? null,
+    // فیلدهای قابل‌ویرایش برای پیش‌پُر کردن فرم هنگام «ویرایش» (Issue 2). همگی
+    // ستون‌های اسکالر همین رکورد‌اند (به‌جز carrierId که FK اختیاری است)، پس Query
+    // اضافه‌ای لازم نیست. نوع خودرو/بار به enum shared-types نگاشته می‌شود تا فرم
+    // همان مقدار را دوباره در Dropdown انتخاب کند (نه برچسب فارسی).
+    orderId: row.orderId,
+    vehicleType: toVehicleType(row.vehicleType),
+    loadType: toLoadType(row.loadType),
+    destinationCity: row.destinationCity,
+    additionalAddress: row.additionalAddress,
+    destinationPostalCode: row.destinationPostalCode,
+    recipientMobile: row.recipientMobile,
+    carrierId: row.carrierId,
   };
 }
 

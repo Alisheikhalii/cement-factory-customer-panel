@@ -448,10 +448,21 @@ export class LoadingRequestRepository {
   /**
    * مجموع مقدار درخواستی روی سفارش که سهم مانده را رزرو می‌کند (BR-05):
    * status IN [SUBMITTED, APPROVED, LOADED]. مبنای محاسبه موجودی در دسترس.
+   *
+   * @param excludeRequestId درخواستی که خودش در حال ویرایش است و نباید علیه خودش
+   *   حساب شود. بدون این، ویرایش «۱۰۰ تن → ۱۰۰ تن» به BR-05 می‌خورد چون مقدار
+   *   قبلیِ همان رکورد هم در رزرو شمرده می‌شد (دوباره‌شماری).
    */
-  async sumActiveRequestedQty(orderId: string): Promise<Prisma.Decimal> {
+  async sumActiveRequestedQty(
+    orderId: string,
+    excludeRequestId?: string,
+  ): Promise<Prisma.Decimal> {
     const result = await this.prisma.loadingRequest.aggregate({
-      where: { orderId, status: { in: ACTIVE_STATUSES } },
+      where: {
+        orderId,
+        status: { in: ACTIVE_STATUSES },
+        ...(excludeRequestId === undefined ? {} : { id: { not: excludeRequestId } }),
+      },
       _sum: { requestedQty: true },
     });
     return result._sum.requestedQty ?? new Prisma.Decimal(0);
@@ -541,6 +552,48 @@ export class LoadingRequestRepository {
       where: { id },
       data,
       include: { product: true, carrier: true, delivery: true },
+    });
+  }
+
+  /**
+   * ویرایش درخواست توسط مشتری — فقط اگر رکورد هنوز در همان وضعیتی باشد که سرویس
+   * خوانده و اعتبارسنجی کرده است (`expectedStatus`).
+   *
+   * ⚠️ شرط وضعیت داخل خودِ `UPDATE` است، نه یک `SELECT` جداگانه: بین «خواندن» و
+   * «نوشتن» ممکن است ادمین همان درخواست را تایید/رد کند. با `updateMany` شرط‌دار،
+   * آن ویرایش با `count = 0` برمی‌گردد (نه اینکه بی‌صدا روی رکوردِ تاییدشده بنشیند)
+   * و سرویس همان را به خطای تعارض وضعیت (LOAD_004) تبدیل می‌کند.
+   *
+   * Scope مشتری هم در همان شرط است تا هیچ مشتری‌ای نتواند درخواست دیگری را ویرایش
+   * کند (بخش ۶.۲).
+   *
+   * @returns رکورد به‌روزشده، یا `null` اگر وضعیت/مالکیت در این فاصله تغییر کرده باشد.
+   */
+  async updateIfStatus(
+    id: string,
+    customerId: string,
+    expectedStatus: LoadingRequestStatus,
+    // ⚠️ نوعِ Unchecked/ManyMutation (اسکالر) چون نوشتن از راه `updateMany` است و آن
+    // فقط ستون‌های اسکالر (شامل کلیدهای خارجیِ orderId/productId) را می‌پذیرد — نه
+    // رابطهٔ `connect`. دادنِ ورودیِ رابطه‌ای اینجا خطای اعتبارسنجی Prisma (۵۰۰) می‌داد.
+    data: Prisma.LoadingRequestUncheckedUpdateManyInput,
+  ): Promise<LoadingRequestWithRelations | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.loadingRequest.updateMany({
+        where: {
+          id,
+          customerId,
+          status: expectedStatus as Prisma.LoadingRequestWhereInput['status'],
+        },
+        data,
+      });
+      if (count === 0) {
+        return null;
+      }
+      return tx.loadingRequest.findUniqueOrThrow({
+        where: { id },
+        include: { product: true, carrier: true, delivery: true },
+      });
     });
   }
 

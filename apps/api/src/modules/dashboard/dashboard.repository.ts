@@ -79,7 +79,8 @@ export class DashboardRepository {
 
   customerProfile(customerId: string): Promise<{
     name: string;
-    customerCode: string;
+    /** `null` = کد تفصیل ثبت نشده (اختیاری است). */
+    customerCode: string | null;
     nationalId: string | null;
     economicCode: string | null;
     address: string | null;

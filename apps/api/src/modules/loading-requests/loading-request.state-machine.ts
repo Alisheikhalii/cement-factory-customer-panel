@@ -11,7 +11,12 @@ import { AppException } from '../../common/exceptions/app.exception';
  * جدول انتقال مجاز:
  *   SUBMITTED → APPROVED | REJECTED | CANCELED
  *   APPROVED  → LOADED   | CANCELED
- *   (REJECTED, LOADED, CANCELED پایانی هستند)
+ *   REJECTED  → SUBMITTED  (فقط با «ویرایش و ارسال مجدد» توسط خودِ مشتری)
+ *   (LOADED, CANCELED پایانی هستند)
+ *
+ * ⚠️ `REJECTED → SUBMITTED` تنها انتقال «برگشتی» جدول است: مشتری علتِ رد را اصلاح
+ * می‌کند و همان رکورد (با همان `requestNumber`) دوباره به کارتابل ادمین می‌رود، پس
+ * تاریخچه‌اش قابل پیگیری می‌ماند. رکورد جدید ساخته نمی‌شود.
  */
 @Injectable()
 export class LoadingRequestStateMachine {
@@ -27,7 +32,7 @@ export class LoadingRequestStateMachine {
       LoadingRequestStatus.LOADED,
       LoadingRequestStatus.CANCELED,
     ],
-    [LoadingRequestStatus.REJECTED]: [],
+    [LoadingRequestStatus.REJECTED]: [LoadingRequestStatus.SUBMITTED],
     [LoadingRequestStatus.LOADED]: [],
     [LoadingRequestStatus.CANCELED]: [],
   };

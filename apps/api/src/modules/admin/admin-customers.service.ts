@@ -42,6 +42,12 @@ export class AdminCustomersService {
   /**
    * ایجاد مشتری جدید + User (BR-26). کد ملی تکراری → ADMIN_001.
    * رمز اولیه = کد ملی (BR-28)، با mustResetPassword=true برای تغییر اجباری در اولین ورود.
+   *
+   * دو قانون عمداً سخت‌گیر نیستند:
+   * - «کد تفصیل» اختیاری است (در لحظهٔ ثبت همیشه از ERP در دست نیست) و اگر داده
+   *   نشود `null` ثبت می‌شود، نه رشتهٔ خالی.
+   * - «موبایل تکراری» مانع ثبت نیست؛ یک شماره می‌تواند برای چند مشتری ثبت شود.
+   *   یکتایی هویت مشتری با کد ملی و کد تفصیل تضمین می‌شود، نه با شمارهٔ تماس.
    */
   async create(
     input: CreateCustomerInput,
@@ -49,20 +55,20 @@ export class AdminCustomersService {
     adminName: string,
   ): Promise<CreateCustomerResult> {
     const nationalId = input.nationalId?.trim() ?? '';
-    const customerCode = input.customerCode?.trim() ?? '';
+    // رشتهٔ خالی به `null` تبدیل می‌شود: ایندکس یکتا چند `null` را می‌پذیرد ولی
+    // چند رشتهٔ خالی را نه، پس ثبت مشتری دومِ بدون کد تفصیل می‌شکست.
+    const customerCode = input.customerCode?.trim() || null;
     const mobile = input.mobile?.trim() ?? '';
-    if (nationalId === '' || customerCode === '' || mobile === '' || !input.name?.trim()) {
+    if (nationalId === '' || mobile === '' || !input.name?.trim()) {
       throw new AppException('GENERIC_500', 'اطلاعات مشتری ناقص است');
     }
 
     if (await this.repo.nationalIdExists(nationalId)) {
       throw new AppException('ADMIN_001');
     }
-    if (await this.repo.customerCodeExists(customerCode)) {
+    // یکتایی کدهای واقعی همچنان بررسی می‌شود؛ فقط «نبودِ کد» مجاز شده است.
+    if (customerCode !== null && (await this.repo.customerCodeExists(customerCode))) {
       throw new AppException('ADMIN_001', 'مشتری‌ای با این کد تفصیل از قبل وجود دارد');
-    }
-    if (await this.repo.mobileExists(mobile)) {
-      throw new AppException('ADMIN_001', 'مشتری‌ای با این شماره موبایل از قبل وجود دارد');
     }
 
     // رمز اولیه = کد ملی (BR-28، سیاست دائمی). مشتری در اولین ورود مجبور به تغییر آن است.
@@ -108,11 +114,8 @@ export class AdminCustomersService {
     if (!existing) {
       throw new AppException('GENERIC_500', 'مشتری مورد نظر یافت نشد');
     }
-    if (input.mobile && input.mobile.trim() !== existing.mobile) {
-      if (await this.repo.mobileExists(input.mobile.trim())) {
-        throw new AppException('ADMIN_001', 'مشتری‌ای با این شماره موبایل از قبل وجود دارد');
-      }
-    }
+    // موبایل تکراری در ویرایش هم رد نمی‌شود (همان قانون ایجاد): یک شماره می‌تواند
+    // برای چند مشتری ثبت شود. اعتبارسنجی «قالب شماره» در DTO سر جای خود است.
     const updated = await this.repo.update(id, {
       name: input.name?.trim(),
       economicCode: input.economicCode?.trim() || null,

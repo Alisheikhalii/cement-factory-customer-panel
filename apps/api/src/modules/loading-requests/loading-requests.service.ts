@@ -31,6 +31,7 @@ import {
   AdminCartableFilter,
   LoadingRequestFilter,
   LoadingRequestRepository,
+  OrderForValidation,
 } from './loading-requests.repository';
 import {
   buildLoadingRequestSumRow,
@@ -319,6 +320,63 @@ export class LoadingRequestService {
     input: CreateLoadingRequestInput,
     now: Date = new Date(),
   ): Promise<LoadingRequestDto> {
+    // همان مسیر اعتبارسنجیِ مشترکِ ثبت/ویرایش (بدون مسیر کد موازی — instruction.md §2).
+    const { order, requestDate, requested } = await this.validateRequestInput(
+      customerId,
+      input,
+      now,
+    );
+
+    // شماره متوالی به‌صورت مقاوم به رقابت هم‌زمانی تولید و ثبت می‌شود (رفع Race).
+    // Enumهای shared-types و Prisma هم‌مقدارند ولی از نظر Type نامساوی؛ طبق الگوی
+    // Repository (buildWhere) به Type فیلد Prisma کست می‌شوند.
+    const created = await this.repo.createWithSequentialNumber({
+      orderId: order.id,
+      customerId,
+      productId: input.productId,
+      requestedQty: requested,
+      vehicleType: input.vehicleType as Prisma.LoadingRequestUncheckedCreateInput['vehicleType'],
+      loadType: input.loadType as Prisma.LoadingRequestUncheckedCreateInput['loadType'],
+      requestDate,
+      destinationCity: input.destinationCity,
+      additionalAddress: input.additionalAddress ?? null,
+      destinationPostalCode: input.destinationPostalCode ?? null,
+      recipientMobile: input.recipientMobile.trim(),
+      carrierId: input.carrierId ?? null,
+      carrierSetBy: input.carrierId ? 'CUSTOMER' : null,
+      status: LoadingRequestStatus.SUBMITTED as Prisma.LoadingRequestUncheckedCreateInput['status'],
+    });
+
+    await this.notifications.emitLoadingRequest(
+      NotificationEvent.LOADING_REQUEST_SUBMITTED,
+      {
+        customerId,
+        customerName: await this.customerName(customerId),
+        requestNumber: created.requestNumber,
+      },
+    );
+
+    return toLoadingRequestDto(created);
+  }
+
+  /**
+   * اعتبارسنجیِ مشترکِ ثبت و ویرایشِ درخواست اعلام بار (بخش ۹.۵، BR-04..BR-06/BR-24).
+   *
+   * ⚠️ تنها مسیر اعتبارسنجی: `create()` و هر دو حالتِ `update()` (ویرایش SUBMITTED و
+   * «ویرایش و ارسال مجدد» REJECTED) از همین‌جا رد می‌شوند، پس ویرایش دقیقاً همان
+   * قواعد ثبتِ تازه را می‌گذراند (خواستهٔ صریح Issue 2: چون Resubmit است اعتبارسنجی
+   * را رد نکن). ترتیب و کدهای خطا مو‌به‌مو همان چیزی است که قبلاً در `create()` بود.
+   *
+   * @param excludeRequestId هنگام ویرایش، خودِ همین درخواست از محاسبهٔ رزرو BR-05 کنار
+   *   گذاشته می‌شود تا مقدار قبلی‌اش دوباره‌شماری نشود (ویرایش ۱۰۰→۱۰۰ نباید رد شود).
+   * @returns سفارشِ حل‌شده، تاریخ درخواستی (فردا، BR-04) و مقدار درخواستیِ Decimal.
+   */
+  private async validateRequestInput(
+    customerId: string,
+    input: CreateLoadingRequestInput,
+    now: Date,
+    excludeRequestId?: string,
+  ): Promise<{ order: OrderForValidation; requestDate: Date; requested: Prisma.Decimal }> {
     // BR-24: موبایل تحویل‌گیرنده نباید خالی باشد.
     if (!input.recipientMobile || input.recipientMobile.trim() === '') {
       throw new AppException('LOAD_006');
@@ -362,7 +420,7 @@ export class LoadingRequestService {
     // (BR-24، BR-06، هم‌خوانی محصول) در همین حالت هم اجرا می‌شوند.
     const requested = new Prisma.Decimal(input.requestedQty);
     if (!productSelection) {
-      const reserved = await this.repo.sumActiveRequestedQty(order.id);
+      const reserved = await this.repo.sumActiveRequestedQty(order.id, excludeRequestId);
       const available = order.totalQty.minus(reserved);
       if (available.lessThanOrEqualTo(0)) {
         throw new AppException('LOAD_005');
@@ -372,36 +430,121 @@ export class LoadingRequestService {
       }
     }
 
-    // شماره متوالی به‌صورت مقاوم به رقابت هم‌زمانی تولید و ثبت می‌شود (رفع Race).
-    // Enumهای shared-types و Prisma هم‌مقدارند ولی از نظر Type نامساوی؛ طبق الگوی
-    // Repository (buildWhere) به Type فیلد Prisma کست می‌شوند.
-    const created = await this.repo.createWithSequentialNumber({
-      orderId: order.id,
+    return { order, requestDate, requested };
+  }
+
+  /**
+   * ویرایش درخواست توسط خودِ مشتری (Issue 2). دو حالت را با یک مسیر پوشش می‌دهد و برای
+   * هر دو دقیقاً همان اعتبارسنجیِ ثبتِ تازه اجرا می‌شود (`validateRequestInput`):
+   *
+   *  (الف) ویرایش وقتی هنوز SUBMITTED است (۲a): مقادیر عوض می‌شوند، وضعیت SUBMITTED
+   *        می‌ماند و همچنان نیازمند تایید ادمین است. تاریخ ثبت دست‌نخورده می‌ماند.
+   *  (ب) «ویرایش و ارسال مجدد» وقتی REJECTED است (۲b): مشتری علتِ رد را اصلاح می‌کند و
+   *        همان رکورد (با همان `requestNumber`/id) دوباره به کارتابل می‌رود
+   *        (REJECTED → SUBMITTED در State Machine — تنها انتقالِ برگشتی). فیلدهای
+   *        بازبینی پاک و `submittedAt` تازه می‌شود تا تاریخچه درست بماند.
+   *
+   * امنیت همزمانی: بین «خواندن وضعیت» و «نوشتن» ممکن است ادمین درخواست را تایید/رد کند.
+   * نوشتن از راه `updateIfStatus` است که شرط وضعیت + مالکیت را داخل خودِ UPDATE دارد؛
+   * اگر در این فاصله عوض شده باشد `null` برمی‌گردد و LOAD_004 می‌دهیم — نه ویرایشِ
+   * بی‌صدا روی رکوردِ تاییدشده (خواستهٔ صریح Issue 2).
+   *
+   * @param now لحظه مرجع؛ در تست تزریق می‌شود (مثل `create`).
+   */
+  async update(
+    customerId: string,
+    id: string,
+    input: CreateLoadingRequestInput,
+    now: Date = new Date(),
+  ): Promise<LoadingRequestDto> {
+    const row = await this.repo.findById(customerId, id);
+    if (!row) {
+      throw new AppException('ORDER_001', 'اعلام بار مورد نظر یافت نشد');
+    }
+    const current = row.status as LoadingRequestStatus;
+
+    // فقط SUBMITTED (ویرایش درجا) یا REJECTED (ویرایش و ارسال مجدد) قابل ویرایش‌اند؛
+    // APPROVED/LOADED/CANCELED یعنی دیگر در اختیار مشتری نیست → تعارض وضعیت (۴۰۹).
+    const isResubmit = current === LoadingRequestStatus.REJECTED;
+    if (current !== LoadingRequestStatus.SUBMITTED && !isResubmit) {
+      throw new AppException(
+        'LOAD_004',
+        `این درخواست در وضعیت «${STATUS_LABELS[current]}» قابل ویرایش نیست`,
+      );
+    }
+
+    // ارسال مجدد یک انتقالِ State Machine است (REJECTED → SUBMITTED)؛ از همان مرجع
+    // عبور می‌کند تا هیچ‌جای دیگری Status را مستقیم عوض نکند (بخش ۸.۱). ویرایشِ درجای
+    // SUBMITTED انتقالی ندارد (SUBMITTED→SUBMITTED در جدول نیست)، پس فقط برای Resubmit.
+    if (isResubmit) {
+      this.stateMachine.assertTransition(current, LoadingRequestStatus.SUBMITTED);
+    }
+
+    // همان اعتبارسنجیِ ثبتِ تازه، با کنار گذاشتنِ خودِ این رکورد از رزرو BR-05.
+    const { order, requestDate, requested } = await this.validateRequestInput(
       customerId,
+      input,
+      now,
+      id,
+    );
+
+    // فیلدهای قابل‌ویرایش (همان فرم ۹.۵). از کلیدهای خارجیِ اسکالر (orderId/productId)
+    // استفاده می‌شود، نه رابطهٔ `connect`: نوشتنِ شرطی از راه `updateMany` انجام می‌شود
+    // (`updateIfStatus`) و `updateMany` فقط ستون‌های اسکالر را می‌پذیرد. دادنِ
+    // `order/product: { connect }` به آن، خطای اعتبارسنجی Prisma و در نتیجه ۵۰۰
+    // («خطایی رخ داده است…») هنگام ذخیرهٔ ویرایش می‌داد.
+    //
+    // ⚠️ carrier عمداً اینجا دست‌کاری نمی‌شود: فرمِ ثبت (که عیناً بازاستفاده می‌شود)
+    // هیچ انتخابگر باربری ندارد و همیشه «کارخانه تعیین کند» است، پس مشتری از این مسیر
+    // باربری را تعیین/تغییر نمی‌دهد. نگه‌داشتنِ مقدار موجود امن‌تر از پاک‌کردنِ یک
+    // باربریِ احتمالاً ازپیش‌تعیین‌شده است (رفتار = همان چیزی که فرم کنترل می‌کند).
+    const data: Prisma.LoadingRequestUncheckedUpdateManyInput = {
+      orderId: order.id,
       productId: input.productId,
       requestedQty: requested,
-      vehicleType: input.vehicleType as Prisma.LoadingRequestUncheckedCreateInput['vehicleType'],
-      loadType: input.loadType as Prisma.LoadingRequestUncheckedCreateInput['loadType'],
+      vehicleType:
+        input.vehicleType as Prisma.LoadingRequestUncheckedUpdateManyInput['vehicleType'],
+      loadType: input.loadType as Prisma.LoadingRequestUncheckedUpdateManyInput['loadType'],
       requestDate,
       destinationCity: input.destinationCity,
       additionalAddress: input.additionalAddress ?? null,
       destinationPostalCode: input.destinationPostalCode ?? null,
       recipientMobile: input.recipientMobile.trim(),
-      carrierId: input.carrierId ?? null,
-      carrierSetBy: input.carrierId ? 'CUSTOMER' : null,
-      status: LoadingRequestStatus.SUBMITTED as Prisma.LoadingRequestUncheckedCreateInput['status'],
-    });
+      // فقط در حالت Resubmit وضعیت/تاریخ ثبت/بازبینی بازنشانی می‌شوند؛ ویرایشِ درجای
+      // SUBMITTED نباید جای رکورد را در کارتابل (مرتب بر submittedAt) جابه‌جا کند.
+      ...(isResubmit
+        ? {
+            status:
+              LoadingRequestStatus.SUBMITTED as Prisma.LoadingRequestUncheckedUpdateManyInput['status'],
+            submittedAt: now,
+            reviewedAt: null,
+            reviewedBy: null,
+            reviewedByNote: null,
+          }
+        : {}),
+    };
 
+    const updated = await this.repo.updateIfStatus(id, customerId, current, data);
+    if (!updated) {
+      // در فاصلهٔ خواندن تا نوشتن، ادمین درخواست را تایید/رد کرد (یا مالکیت عوض شد).
+      throw new AppException(
+        'LOAD_004',
+        'وضعیت این درخواست تغییر کرده و دیگر قابل ویرایش نیست؛ صفحه را تازه کنید',
+      );
+    }
+
+    // هر دو حالت به‌عنوان «ثبت درخواست» به ادمین اعلام می‌شود: ویرایشِ SUBMITTED هم
+    // یعنی محتوای کارتابل عوض شده، و Resubmit یعنی درخواست دوباره در انتظار بررسی است.
     await this.notifications.emitLoadingRequest(
       NotificationEvent.LOADING_REQUEST_SUBMITTED,
       {
         customerId,
         customerName: await this.customerName(customerId),
-        requestNumber: created.requestNumber,
+        requestNumber: updated.requestNumber,
       },
     );
 
-    return toLoadingRequestDto(created);
+    return toLoadingRequestDto(updated);
   }
 
   /**
@@ -495,17 +638,18 @@ export class LoadingRequestService {
   }
 
   /**
-   * رد درخواست توسط ادمین (SUBMITTED → REJECTED، BR-11).
-   * دلیل اجباری است؛ خالی → ADMIN_002.
+   * رد درخواست توسط ادمین (SUBMITTED → REJECTED).
+   * ⚠️ BR-11 عمداً شل شد: دلیل رد دیگر اجباری نیست. اگر دلیل خالی/حذف باشد،
+   * `reviewedByNote = null` ذخیره می‌شود (نه رشتهٔ خالی) تا سمت مشتری «چیزی
+   * نمایش داده نشود»، نه «null/undefined». (قبلاً خالی → ADMIN_002.)
    */
   async reject(
     id: string,
     adminUserId: string,
-    reason: string,
+    reason?: string,
   ): Promise<LoadingRequestDto> {
-    if (!reason || reason.trim() === '') {
-      throw new AppException('ADMIN_002');
-    }
+    const trimmedReason = reason?.trim() ?? '';
+    const note = trimmedReason === '' ? null : trimmedReason;
     const row = await this.requireContext(id);
     this.stateMachine.assertTransition(
       row.status as LoadingRequestStatus,
@@ -515,7 +659,7 @@ export class LoadingRequestService {
       status: LoadingRequestStatus.REJECTED as Prisma.LoadingRequestUpdateInput['status'],
       reviewedAt: new Date(),
       reviewedBy: adminUserId,
-      reviewedByNote: reason.trim(),
+      reviewedByNote: note,
     });
     await this.notifications.emitLoadingRequest(
       NotificationEvent.LOADING_REQUEST_REJECTED,
@@ -523,7 +667,7 @@ export class LoadingRequestService {
         customerId: row.customer.id,
         customerName: row.customer.name,
         requestNumber: row.requestNumber,
-        reason: reason.trim(),
+        reason: note ?? undefined,
       },
     );
     return toLoadingRequestDto(updated);

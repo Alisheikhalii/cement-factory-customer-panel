@@ -62,3 +62,13 @@ export class CreateLoadingRequestDto implements CreateLoadingRequestInput {
   @IsString()
   carrierId?: string;
 }
+
+/**
+ * بدنه «ویرایش» درخواست اعلام بار توسط مشتری (Issue 2).
+ *
+ * عمداً از `CreateLoadingRequestDto` ارث می‌برد و هیچ فیلد/اعتبارسنجیِ تازه‌ای اضافه
+ * نمی‌کند: ویرایش دقیقاً همان فیلدها و همان قواعد فرم ثبت را دارد (بخش ۹.۵). این‌که
+ * یک کلاس جدا داریم فقط برای خوانایی مسیر و امکان تفکیک آینده است؛ منطق اعتبارسنجی
+ * یکی است و در سرویس هم همان مسیر مشترک اجرا می‌شود (بدون مسیر کد موازی).
+ */
+export class UpdateLoadingRequestDto extends CreateLoadingRequestDto {}

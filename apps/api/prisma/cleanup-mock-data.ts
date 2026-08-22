@@ -203,7 +203,9 @@ async function collect(): Promise<{ plans: ModelPlan[]; blockers: Blocker[]; hel
   const mockCustomers: typeof candidates = [];
   const nearMiss: typeof candidates = [];
   for (const c of candidates) {
-    const want = expected.get(c.customerCode);
+    // کد تفصیل Nullable است؛ مشتری بدون کد هرگز Seed نیست (فرمول Seed همیشه کد
+    // می‌سازد) پس مستقیماً «نامنطبق» و نگه‌داشتنی است.
+    const want = c.customerCode === null ? undefined : expected.get(c.customerCode);
     const matches =
       want !== undefined &&
       c.erpCustomerId === want.erpCustomerId &&

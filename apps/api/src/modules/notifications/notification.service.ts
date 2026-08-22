@@ -44,7 +44,11 @@ export class NotificationService {
         await this.repo.createForCustomer(
           payload.customerId,
           'رد اعلام بار',
-          `درخواست اعلام بار شماره ${payload.requestNumber} شما رد شد: ${payload.reason ?? ''}`,
+          // دلیل رد اختیاری است (BR-11 شل شد): اگر خالی باشد فقط جملهٔ پایه بدون
+          // «: » معلق نمایش داده می‌شود، نه «null/undefined».
+          payload.reason
+            ? `درخواست اعلام بار شماره ${payload.requestNumber} شما رد شد: ${payload.reason}`
+            : `درخواست اعلام بار شماره ${payload.requestNumber} شما رد شد.`,
         );
         return;
 

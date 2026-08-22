@@ -66,6 +66,11 @@ export class AdminCustomerRepository {
     return customer !== null || user !== null;
   }
 
+  /**
+   * بررسی تکراری بودن کد تفصیل. فقط وقتی صدا زده می‌شود که ادمین کد تفصیل داده
+   * باشد؛ کد تفصیل اختیاری است و مشتری بدون کد با `null` ثبت می‌شود (چند `null`
+   * در ایندکس یکتای Postgres مجاز است).
+   */
   async customerCodeExists(customerCode: string): Promise<boolean> {
     const existing = await this.prisma.customer.findFirst({
       where: { customerCode },
@@ -74,6 +79,13 @@ export class AdminCustomerRepository {
     return existing !== null;
   }
 
+  /**
+   * بررسی وجود مشتری دیگری با همین موبایل.
+   *
+   * ⚠️ دیگر برای «رد کردن» ثبت/ویرایش استفاده نمی‌شود: موبایل تکراری بین چند مشتری
+   * مجاز است (یک نمایندهٔ واحد برای چند شرکت). این متد عمداً حفظ شده چون خواندنی و
+   * بی‌عارضه است و برای گزارش/هشدار «این شماره قبلاً ثبت شده» به کار می‌آید.
+   */
   async mobileExists(mobile: string): Promise<boolean> {
     const existing = await this.prisma.customer.findFirst({
       where: { mobile },
@@ -88,7 +100,8 @@ export class AdminCustomerRepository {
    */
   async createWithUser(
     data: {
-      customerCode: string;
+      /** `null` = کد تفصیل هنوز مشخص نیست (اختیاری است و بعداً تکمیل می‌شود). */
+      customerCode: string | null;
       name: string;
       nationalId: string;
       economicCode: string | null;

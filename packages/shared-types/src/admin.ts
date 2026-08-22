@@ -46,7 +46,8 @@ export interface AdminLoadingRequestTrendPoint {
 
 export interface AdminCustomerDto {
   id: string;
-  customerCode: string;
+  /** `null` = کد تفصیل هنوز ثبت نشده (اختیاری است)؛ در جدول «—» نمایش می‌یابد. */
+  customerCode: string | null;
   name: string;
   nationalId: string | null;
   economicCode: string | null;
@@ -60,7 +61,11 @@ export interface AdminCustomerDto {
 
 /** بدنه ایجاد مشتری جدید توسط ادمین (BR-26/BR-28). */
 export interface CreateCustomerInput {
-  customerCode: string;
+  /**
+   * کد تفصیل — اختیاری. در لحظهٔ ثبت همیشه از ERP در دست نیست؛ اگر داده نشود
+   * مشتری با `customerCode = null` ثبت می‌شود و بعداً تکمیل می‌گردد.
+   */
+  customerCode?: string;
   name: string;
   nationalId: string;
   economicCode?: string;
@@ -147,7 +152,8 @@ export interface AdminLoadingRequestDetail {
   reviewedByNote: string | null;
   customer: {
     name: string;
-    customerCode: string;
+    /** `null` = کد تفصیل مشتری ثبت نشده (اختیاری است). */
+    customerCode: string | null;
   };
   orderNumber: string;
 }

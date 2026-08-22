@@ -20,6 +20,7 @@ import type { AuthUser } from '@cement/shared-types';
 import { apiClient } from '../../lib/api';
 import { authStorage } from '../../lib/auth-storage';
 import { companyInfo } from '../../lib/company-info';
+import { ErrorBoundary } from './ErrorBoundary';
 
 /** آیتم‌های منوی ادمین (بخش ۹.۹): داشبورد، مشتریان، کارتابل، شکایات، نظرسنجی. */
 const NAV_ITEMS = [
@@ -169,7 +170,11 @@ export function AdminShell({
 
       {/* محتوای اصلی */}
       <main className="lg:mr-72 pt-16">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* مرزِ خطا دورِ بدنهٔ صفحهٔ ادمین (Issue 3a): اگر یک صفحه در رندر بیفتد،
+              سایدبار/هدر سالم می‌ماند و «تلاش مجدد» فقط همین بخش را باز-رندر می‌کند. */}
+          <ErrorBoundary name="AdminShell:content">{children}</ErrorBoundary>
+        </div>
       </main>
     </div>
   );

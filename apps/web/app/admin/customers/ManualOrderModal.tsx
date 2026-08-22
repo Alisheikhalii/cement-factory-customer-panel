@@ -162,7 +162,10 @@ export function ManualOrderModal({
 
         <p className="mb-4 text-sm text-on-surface-variant">
           مشتری: <span className="font-bold text-on-surface">{customer.name}</span>
-          <span className="mr-2 text-xs">({customer.customerCode})</span>
+          {/* کد تفصیل اختیاری است؛ بدون آن پرانتز خالی نمایش داده نمی‌شود. */}
+          {customer.customerCode !== null && (
+            <span className="mr-2 text-xs">({customer.customerCode})</span>
+          )}
         </p>
 
         {error && (

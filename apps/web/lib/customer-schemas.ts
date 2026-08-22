@@ -3,11 +3,15 @@ import { isValidIranianNationalId } from '@cement/shared-types';
 
 /**
  * اسکیمای فرم تعریف/ویرایش مشتری (بخش ۹.۹.۲، BR-26/BR-28).
- * هنگام ایجاد، کد ملی و کد تفصیل الزامی‌اند (هویت ورود). هنگام ویرایش این دو
+ * هنگام ایجاد کد ملی الزامی است (هویت ورود). هنگام ویرایش کد ملی و کد تفصیل
  * تغییرناپذیر و فقط‌خواندنی‌اند، پس اعتبارسنجی نمی‌شوند.
+ *
+ * ⚠️ «کد تفصیل» در ایجاد هم اختیاری است: در لحظهٔ ثبت مشتری همیشه از ERP در دست
+ * نیست و بعداً تکمیل می‌شود.
  */
 const baseShape = {
   economicCode: z.string().optional(),
+  // فقط «قالب» شماره بررسی می‌شود؛ تکراری بودن شماره بین چند مشتری مجاز است.
   mobile: z
     .string()
     .min(1, 'موبایل الزامی است')
@@ -18,7 +22,7 @@ const baseShape = {
 };
 
 export const createCustomerSchema = z.object({
-  customerCode: z.string().min(1, 'کد تفصیل الزامی است'),
+  customerCode: z.string().optional(),
   name: z.string().min(1, 'نام مشتری الزامی است'),
   nationalId: z
     .string()
