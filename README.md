@@ -67,3 +67,6 @@ pnpm dev
 - ERP فقط از طریق `ERP_ADAPTER_TOKEN` تزریق می‌شود
 - خطاها فقط از `error-codes.ts` مرکزی (بخش ۱۶)
 - هر Service جدید همراه `*.spec.ts`
+
+  لینک ویدیو دموی محصول
+  https://drive.google.com/file/d/1gm5RSJa_0ahe-7kcbjXCu7lvQeDr8-ry/view?usp=sharing
